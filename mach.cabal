@@ -1,0 +1,65 @@
+cabal-version:      3.4
+name:               mach
+version:            0.1.0.0
+synopsis:           A WiP implementation of the POSIX make build system
+-- description:
+license:            CC-BY-NC-SA-4.0
+license-file:       LICENSE
+author:             Sören Tempel
+maintainer:         soeren+git@soeren-tempel.net
+-- copyright:
+category:           Development
+build-type:         Simple
+extra-doc-files:    README.md
+-- extra-source-files:
+
+common warnings
+    ghc-options: -Wall
+
+library
+    import:           warnings
+    exposed-modules:
+        Mach.Parser,
+        Mach.Macro
+    -- other-modules:
+    -- other-extensions:
+    build-depends:
+        -- Keep the base and the parsec version aligned with
+        -- the library versioned shipped by the GHC version.
+        --
+        -- See: https://downloads.haskell.org/~ghc/9.4.7/docs/users_guide/9.4.7-notes.html#included-libraries
+        base       ^>=4.17.2.0,
+        parsec     ^>=3.1.16.1,
+        text       ^>=2.0.2,
+        containers ^>=0.6.7
+    hs-source-dirs:   lib
+    default-language: Haskell2010
+
+executable mach
+    import:           warnings
+    main-is:          Main.hs
+    -- other-modules:
+    -- other-extensions:
+    build-depends:
+        base ^>=4.17.2.0,
+        mach
+
+    hs-source-dirs:   exe
+    default-language: Haskell2010
+
+test-suite mach-test
+    import:           warnings
+    default-language: Haskell2010
+    type:             exitcode-stdio-1.0
+    hs-source-dirs:   test
+    main-is:          Main.hs
+    other-modules:    Parser
+
+    build-depends:
+        base         ^>=4.17.2.0,
+        parsec       ^>=3.1.16.1,
+        containers   ^>=0.6.7,
+        text         ^>=2.0.2,
+        tasty        ^>=1.4.2.3,
+        tasty-hunit  ^>=0.10.0.3,
+        mach
