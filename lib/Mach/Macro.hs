@@ -42,9 +42,9 @@ data Flavor
   deriving (Eq)
 
 instance Show Flavor where
-  show (Delayed) = "="
-  show (Immediate) = ":="
-  show (StrictDelay) = ":::="
-  show (System) = "!="
-  show (Cond) = "?="
-  show (Append) = "+="
+  show Delayed = "="
+  show Immediate = ":="
+  show StrictDelay = ":::="
+  show System = "!="
+  show Cond = "?="
+  show Append = "+="

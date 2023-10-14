@@ -99,7 +99,7 @@ token =
     escDollar = bind "$$" (M.Lit $ T.pack "$")
 
     escNewline :: Parser M.Token
-    escNewline = (M.Lit $ T.pack " ") <$ (string "\\\n" >> maybeBlanks)
+    escNewline = M.Lit (T.pack " ") <$ (string "\\\n" >> maybeBlanks)
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
