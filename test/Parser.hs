@@ -36,6 +36,12 @@ assignTests =
       testCase "Multi-token assignment" $
         let rvalue = M.Seq $ Seq.fromList [M.Lit "a", M.Exp (M.Lit "b"), M.Lit "c"]
          in parse "_ ?= a${b}c" @?= assign "_" M.Cond rvalue,
+      testCase "Assignment with escaped dollar" $
+        let rvalue = M.Seq $ Seq.fromList [M.Lit "$", M.Lit "foo", M.Lit "$", M.Lit "bar"]
+         in parse "a = $$foo$$bar" @?= assign "a" M.Delayed rvalue,
+      testCase "Assignment with escaped newline" $
+        let rvalue = M.Seq $ Seq.fromList [M.Lit "foo", M.Lit " ", M.Lit "bar"]
+         in parse "a = foo\\\nbar" @?= assign "a" M.Delayed rvalue,
       testCase "Invalid macro expansion" $
         assertBool "closing brackets are not valid macro names" $
           parseErr "foo = ${}}"

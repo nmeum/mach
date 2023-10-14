@@ -5,7 +5,7 @@ import Control.Monad (void)
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Mach.Macro as M
-import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, many, many1, noneOf, oneOf, string, (<|>))
+import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, many, many1, noneOf, oneOf, string, try, (<|>))
 
 -- | Makefile specification, a sequence of statements.
 type MkFile = [MkStat]
@@ -32,6 +32,10 @@ bind str val = val <$ string str
 -- | Parse one or more <blank> characters.
 blanks :: Parser ()
 blanks = void $ many1 (char ' ')
+
+-- Parse zero or more <blank> characters.
+maybeBlanks :: Parser ()
+maybeBlanks = void $ many (char ' ')
 
 -- | Parse a character from the portable filename character set.
 --
@@ -86,20 +90,20 @@ macroExpand = M.Exp <$> macroExpand'
 token :: Parser M.Token
 token =
   -- TODO: Skip comments in lexer
-  macroExpand
-    <|> escNewline
+  try macroExpand
     <|> escDollar
+    <|> escNewline
     <|> litToken
   where
     escDollar :: Parser M.Token
     escDollar = bind "$$" (M.Lit $ T.pack "$")
 
     escNewline :: Parser M.Token
-    escNewline = bind "\\\n" (M.Lit $ T.pack "\n")
+    escNewline = (M.Lit $ T.pack " ") <$ (string "\\\n" >> maybeBlanks)
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
-    litToken = M.Lit <$> (T.pack <$> many1 (noneOf "#$\\"))
+    litToken = M.Lit <$> (T.pack <$> many1 (noneOf "#\n\\$"))
 
 -- | Parse a sequence of zero or more 'M.Token'.
 tokens :: Parser M.Token
