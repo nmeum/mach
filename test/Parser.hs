@@ -35,7 +35,10 @@ assignTests =
          in parse "nested := ${${FOO_BAR}}" @=? assign "nested" M.Immediate rvalue,
       testCase "Multi-token assignment" $
         let rvalue = M.Seq $ Seq.fromList [M.Lit "a", M.Exp (M.Lit "b"), M.Lit "c"]
-         in parse "_ ?= a${b}c" @=? assign "_" M.Cond rvalue
+         in parse "_ ?= a${b}c" @=? assign "_" M.Cond rvalue,
+      testCase "Invalid macro expansion" $
+        assertBool "closing brackets are not valid macro names" $
+          parseErr "foo = ${}}"
     ]
   where
     parse :: String -> Either Parsec.ParseError M.Assign
