@@ -97,8 +97,9 @@ token =
     escNewline :: Parser M.Token
     escNewline = bind "\\\n" (M.Lit $ T.pack "\n")
 
+    -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
-    litToken = M.Lit <$> (T.pack <$> many1 (noneOf "#"))
+    litToken = M.Lit <$> (T.pack <$> many1 (noneOf "#$\\"))
 
 -- | Parse a sequence of zero or more 'M.Token'.
 tokens :: Parser M.Token
