@@ -17,10 +17,10 @@ assignTests =
     "assignments"
     [ testCase "Simple assignment of macro to string" $
         let rvalue = M.Seq $ Seq.fromList [M.Lit "bar"]
-         in parse "foo = bar" @=? assign "foo" M.Delayed rvalue,
+         in parse "foo = bar" @?= assign "foo" M.Delayed rvalue,
       testCase "Assignment with multiple blanks" $
         let rvalue = M.Seq $ Seq.fromList [M.Lit "bar"]
-         in parse "foo   =     bar" @=? assign "foo" M.Delayed rvalue,
+         in parse "foo   =     bar" @?= assign "foo" M.Delayed rvalue,
       testCase "Assignment with tab character" $
         assertBool "can only use blanks" $
           parseErr "foo \t= \tbar",
@@ -29,13 +29,13 @@ assignTests =
           parseErr "foo=bar",
       testCase "Simple macro expansion" $
         let rvalue = M.Seq $ Seq.fromList [M.Exp $ M.Lit "BAR"]
-         in parse "m_exp = ${BAR}" @=? assign "m_exp" M.Delayed rvalue,
+         in parse "m_exp = ${BAR}" @?= assign "m_exp" M.Delayed rvalue,
       testCase "Nested macro expansion" $
         let rvalue = M.Seq $ Seq.fromList [M.Exp $ M.Exp (M.Lit "FOO_BAR")]
-         in parse "nested := ${${FOO_BAR}}" @=? assign "nested" M.Immediate rvalue,
+         in parse "nested := ${${FOO_BAR}}" @?= assign "nested" M.Immediate rvalue,
       testCase "Multi-token assignment" $
         let rvalue = M.Seq $ Seq.fromList [M.Lit "a", M.Exp (M.Lit "b"), M.Lit "c"]
-         in parse "_ ?= a${b}c" @=? assign "_" M.Cond rvalue,
+         in parse "_ ?= a${b}c" @?= assign "_" M.Cond rvalue,
       testCase "Invalid macro expansion" $
         assertBool "closing brackets are not valid macro names" $
           parseErr "foo = ${}}"
