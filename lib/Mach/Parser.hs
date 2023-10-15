@@ -5,23 +5,29 @@ import Control.Monad (void)
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Mach.Macro as M
-import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, many, many1, noneOf, oneOf, string, try, (<|>))
+import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
 -- | Makefile specification, a sequence of statements.
 type MkFile = [MkStat]
+
+-- | Makefile rule which relates targets to commands for their creation.
+data Rule
+  = Rule
+      -- | Targets (non-empty)
+      (Seq.Seq M.Token)
+      -- | Prerequisites
+      (Seq.Seq M.Token)
+      -- | Commands
+      (Seq.Seq M.Token)
+  deriving
+    (Show, Eq)
 
 -- | A statement within a @Makefile@. Three types of statements are
 -- supported: assignments, includes, and rules.
 data MkStat
   = MkAssign M.Assign
   | MkInclude T.Text
-  | MkRule
-      -- | Targets
-      [T.Text]
-      -- | Prerequisites
-      [M.Token]
-      -- | Commands
-      [M.Token]
+  | MkRule Rule
 
 ------------------------------------------------------------------------
 
@@ -29,9 +35,13 @@ data MkStat
 bind :: String -> a -> Parser a
 bind str val = val <$ string str
 
+-- | Parse a single blank character.
+blank :: Parser Char
+blank = char ' '
+
 -- | Parse one or more <blank> characters.
 blanks :: Parser ()
-blanks = void $ many1 (char ' ')
+blanks = void $ many1 blank
 
 -- Parse zero or more <blank> characters.
 maybeBlanks :: Parser ()
@@ -103,11 +113,23 @@ token =
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
-    litToken = M.Lit <$> (T.pack <$> many1 (noneOf "#\n\\$"))
+    litToken = M.Lit <$> (T.pack <$> many1 (noneOf ":#\n\\$"))
 
 -- | Parse a sequence of zero or more 'M.Token'.
 tokens :: Parser M.Token
 tokens = M.Seq . Seq.fromList <$> many token
+
+-- | Target rule which defines how targets are build.
+targetRule :: Parser Rule
+targetRule = do
+  targets <- Seq.fromList <$> sepBy1 token blank
+  _ <- char ':' >> blank
+  prereqs <- Seq.fromList <$> sepBy token blank
+  command <- optionMaybe (char ';' >> token)
+  _ <- newline
+
+  cmds <- Seq.fromList <$> many1 (char '\t' >> (token <* newline))
+  pure $ Rule targets prereqs (maybe cmds ((flip (Seq.<|)) cmds) command)
 
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser MkFile
