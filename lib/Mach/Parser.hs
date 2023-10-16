@@ -139,8 +139,12 @@ targetRule = do
   _ <- newline
 
   cmds <- Seq.fromList <$> many (char '\t' >> (token <* newline))
-  pure $ Rule targets prereqs (maybe cmds ((flip (Seq.<|)) cmds) command)
+  pure $ Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
 
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser MkFile
-mkFile = error "not implemented"
+mkFile =
+  many
+    ( (MkRule <$> targetRule)
+        <|> (MkAssign <$> assign <* newline)
+    )
