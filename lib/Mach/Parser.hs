@@ -26,7 +26,7 @@ data Rule
 -- supported: assignments, includes, and rules.
 data MkStat
   = MkAssign M.Assign
-  | MkInclude T.Text
+  | MkInclude (Seq.Seq M.Token)
   | MkRule Rule
 
 ------------------------------------------------------------------------
@@ -141,10 +141,19 @@ targetRule = do
   cmds <- Seq.fromList <$> many (char '\t' >> (token <* newline))
   pure $ Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
 
+include :: Parser (Seq.Seq M.Token)
+include = do
+  _ <- char '-'
+  _ <- string "include" >> blanks
+  paths <- sepBy1 (tokenLit $ noneOf " #\n\\$") blank
+  _ <- maybeBlanks
+  pure $ Seq.fromList paths
+
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser MkFile
 mkFile =
   many
     ( (MkRule <$> targetRule)
         <|> (MkAssign <$> assign <* newline)
+        <|> (MkInclude <$> include <* newline)
     )
