@@ -56,5 +56,29 @@ assignTests =
     assign :: T.Text -> M.Flavor -> M.Token -> Either Parsec.ParseError M.Assign
     assign n f t = Right $ M.Assign n f t
 
+ruleTests :: TestTree
+ruleTests =
+  testGroup
+    "target rules"
+    [ testCase "Single target, single prerequisite, single command" $
+        parse "foo: bar\n\tbaz\n" @?= rule [M.Lit "foo"] [M.Lit "bar"] [M.Lit "baz"],
+      testCase "No prerequisite" $
+        parse "foo:\n\tbar\n" @?= rule [M.Lit "foo"] [] [M.Lit "bar"],
+      testCase "No prerequisite, no commands" $
+        parse "foo:\n" @?= rule [M.Lit "foo"] [] [],
+      testCase "Multiple targets" $
+        parse "foo bar baz:\n\tcommand\n" @?= rule [M.Lit "foo", M.Lit "bar", M.Lit "baz"] [] [M.Lit "command"],
+      testCase "Command on same line" $
+        parse "foo: bar baz;echo foo\n\techo bar\n" @?= rule [M.Lit "foo"] [M.Lit "bar", M.Lit "baz"] [M.Lit "echo foo", M.Lit "echo bar"],
+      testCase "Target with macro expansion" $
+        parse "$(MAIN):\n" @?= rule [M.Exp (M.Lit "MAIN")] [] []
+    ]
+  where
+    parse :: String -> Either Parsec.ParseError P.Rule
+    parse = Parsec.parse P.targetRule ""
+
+    rule :: [M.Token] -> [M.Token] -> [M.Token] -> Either Parsec.ParseError P.Rule
+    rule t p c = Right $ P.Rule (Seq.fromList t) (Seq.fromList p) (Seq.fromList c)
+
 mkParser :: TestTree
-mkParser = testGroup "Tests for the Makefile parser" [assignTests]
+mkParser = testGroup "Tests for the Makefile parser" [assignTests, ruleTests]

@@ -5,7 +5,7 @@ import Control.Monad (void)
 import qualified Data.Sequence as Seq
 import qualified Data.Text as T
 import qualified Mach.Macro as M
-import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
+import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
 -- | Makefile specification, a sequence of statements.
 type MkFile = [MkStat]
@@ -59,6 +59,12 @@ fnChar = alphaNum <|> oneOf "._-"
 macroName :: Parser T.Text
 macroName = T.pack <$> many1 fnChar
 
+-- | Parse a target name character. As per POSIX, target names should
+-- only consist of slashes, hyphens, periods, underscores, digits and
+-- alphabetics.
+targetChar :: Parser Char
+targetChar = alphaNum <|> oneOf "/-._"
+
 -- | Parse an assignment operator, also refered to as a macro flavor
 -- in the POSIX standard. The implementation provided here should
 -- be aligned with the 'Show' instance of 'M.Flavor'.
@@ -96,9 +102,13 @@ macroExpand = M.Exp <$> macroExpand'
     inner :: Parser M.Token
     inner = macroExpand <|> (M.Lit <$> macroName)
 
--- Parse a single token, i.e. an escaped newline, escaped @$@ character, macro expansion, or literal.
+-- | Parse a single token, i.e. an escaped newline, escaped @$@ character, macro expansion, or literal.
 token :: Parser M.Token
-token =
+token = tokenLit $ noneOf "#\n\\$"
+
+-- | Parse a token but use a custom parser for parsing of literal tokens.
+tokenLit :: Parser Char -> Parser M.Token
+tokenLit literal =
   -- TODO: Skip comments in lexer
   try macroExpand
     <|> escDollar
@@ -113,7 +123,7 @@ token =
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
-    litToken = M.Lit <$> (T.pack <$> many1 (noneOf ":#\n\\$"))
+    litToken = M.Lit <$> (T.pack <$> many1 literal)
 
 -- | Parse a sequence of zero or more 'M.Token'.
 tokens :: Parser M.Token
@@ -122,13 +132,13 @@ tokens = M.Seq . Seq.fromList <$> many token
 -- | Target rule which defines how targets are build.
 targetRule :: Parser Rule
 targetRule = do
-  targets <- Seq.fromList <$> sepBy1 token blank
-  _ <- char ':' >> blank
-  prereqs <- Seq.fromList <$> sepBy token blank
+  targets <- Seq.fromList <$> sepBy1 (tokenLit targetChar) blank
+  _ <- char ':' >> (blank <|> lookAhead newline)
+  prereqs <- Seq.fromList <$> sepBy (tokenLit targetChar) blank
   command <- optionMaybe (char ';' >> token)
   _ <- newline
 
-  cmds <- Seq.fromList <$> many1 (char '\t' >> (token <* newline))
+  cmds <- Seq.fromList <$> many (char '\t' >> (token <* newline))
   pure $ Rule targets prereqs (maybe cmds ((flip (Seq.<|)) cmds) command)
 
 -- | Parse a POSIX @Makefile@.
