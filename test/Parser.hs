@@ -80,5 +80,28 @@ ruleTests =
     rule :: [M.Token] -> [M.Token] -> [M.Token] -> Either Parsec.ParseError P.Rule
     rule t p c = Right $ P.Rule (Seq.fromList t) (Seq.fromList p) (Seq.fromList c)
 
+includeTests :: TestTree
+includeTests =
+  testGroup
+    "include lines"
+    [ testCase "single file path" $
+        parse "include foo" @?= mkPaths [M.Lit "foo"],
+      testCase "multiple paths" $
+        parse "include foo bar baz" @?= mkPaths [M.Lit "foo", M.Lit "bar", M.Lit "baz"],
+      testCase "path with macro expansion" $
+        parse "include ${FILE}" @?= mkPaths [M.Exp (M.Lit "FILE")],
+      testCase "include prefixed with minus" $
+        parse "-include foo" @?= mkPaths [M.Lit "foo"]
+    ]
+  where
+    parse :: String -> Either Parsec.ParseError (Seq.Seq M.Token)
+    parse = Parsec.parse P.include ""
+
+    mkPaths :: [M.Token] -> Either Parsec.ParseError (Seq.Seq M.Token)
+    mkPaths = Right . Seq.fromList
+
 mkParser :: TestTree
-mkParser = testGroup "Tests for the Makefile parser" [assignTests, ruleTests]
+mkParser =
+  testGroup
+    "Tests for the Makefile parser"
+    [assignTests, ruleTests, includeTests]

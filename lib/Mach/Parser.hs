@@ -143,7 +143,7 @@ targetRule = do
 
 include :: Parser (Seq.Seq M.Token)
 include = do
-  _ <- char '-'
+  _ <- optionMaybe (char '-')
   _ <- string "include" >> blanks
   paths <- sepBy1 (tokenLit $ noneOf " #\n\\$") blank
   _ <- maybeBlanks
