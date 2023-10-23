@@ -154,7 +154,7 @@ include = do
 mkFile :: Parser MkFile
 mkFile =
   many
-    ( try $ MkRule <$> targetRule
-        <|> try (MkAssign <$> assign <* newline)
+    ( try (MkAssign <$> assign <* newline)
+        <|> try (MkRule <$> targetRule)
         <|> try (MkInclude <$> include <* newline)
     )

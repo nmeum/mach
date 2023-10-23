@@ -100,8 +100,26 @@ includeTests =
     mkPaths :: [M.Token] -> Either Parsec.ParseError (Seq.Seq M.Token)
     mkPaths = Right . Seq.fromList
 
+mkTests :: TestTree
+mkTests =
+  testGroup
+    "makefile parser"
+    [ testCase "assignment" $
+        let assign = M.Assign "foo" M.Delayed (M.Seq $ Seq.fromList [M.Lit "bar"])
+         in parse "foo = bar\n" @?= Right [P.MkAssign assign],
+      testCase "rule" $
+        let rule = P.Rule (Seq.fromList [M.Lit "foo"]) (Seq.empty) (Seq.fromList [M.Lit "bar"])
+         in parse "foo:\n\tbar\n" @?= Right [P.MkRule rule],
+      testCase "include" $
+        let paths = Seq.fromList [M.Lit "foo", M.Lit "bar"]
+         in parse "include foo bar\n" @?= Right [P.MkInclude paths]
+    ]
+  where
+    parse :: String -> Either Parsec.ParseError [P.MkStat]
+    parse = Parsec.parse P.mkFile ""
+
 mkParser :: TestTree
 mkParser =
   testGroup
     "Tests for the Makefile parser"
-    [assignTests, ruleTests, includeTests]
+    [assignTests, ruleTests, includeTests, mkTests]
