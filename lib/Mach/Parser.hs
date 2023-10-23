@@ -36,6 +36,10 @@ data MkStat
 bind :: String -> a -> Parser a
 bind str val = val <$ string str
 
+-- | Parse one or more newlines.
+newlines :: Parser ()
+newlines = void $ many1 newline
+
 -- | Parse a single blank character.
 blank :: Parser Char
 blank = char ' '
@@ -154,7 +158,7 @@ include = do
 mkFile :: Parser MkFile
 mkFile =
   many
-    ( try (MkAssign <$> assign <* newline)
+    ( try (MkAssign <$> assign <* newlines)
         <|> try (MkRule <$> targetRule)
-        <|> try (MkInclude <$> include <* newline)
+        <|> try (MkInclude <$> include <* newlines)
     )
