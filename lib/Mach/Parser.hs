@@ -28,7 +28,7 @@ data MkStat
   = MkAssign M.Assign
   | MkInclude (Seq.Seq M.Token)
   | MkRule Rule
-  deriving (Show)
+  deriving (Show, Eq)
 
 ------------------------------------------------------------------------
 
