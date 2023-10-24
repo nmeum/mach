@@ -61,17 +61,19 @@ ruleTests =
   testGroup
     "target rules"
     [ testCase "Single target, single prerequisite, single command" $
-        parse "foo: bar\n\tbaz\n" @?= rule [M.Lit "foo"] [M.Lit "bar"] [M.Lit "baz"],
+        parse "foo: bar\n\tbaz\n" @?= rule [M.Lit "foo"] [M.Lit "bar"] [M.Seq $ Seq.fromList [M.Lit "baz"]],
       testCase "No prerequisite" $
-        parse "foo:\n\tbar\n" @?= rule [M.Lit "foo"] [] [M.Lit "bar"],
+        parse "foo:\n\tbar\n" @?= rule [M.Lit "foo"] [] [M.Seq $ Seq.fromList [M.Lit "bar"]],
       testCase "No prerequisite, no commands" $
         parse "foo:\n" @?= rule [M.Lit "foo"] [] [],
       testCase "Multiple targets" $
-        parse "foo bar baz:\n\tcommand\n" @?= rule [M.Lit "foo", M.Lit "bar", M.Lit "baz"] [] [M.Lit "command"],
+        parse "foo bar baz:\n\tcommand\n" @?= rule [M.Lit "foo", M.Lit "bar", M.Lit "baz"] [] [M.Seq $ Seq.fromList [M.Lit "command"]],
       testCase "Command on same line" $
-        parse "foo: bar baz;echo foo\n\techo bar\n" @?= rule [M.Lit "foo"] [M.Lit "bar", M.Lit "baz"] [M.Lit "echo foo", M.Lit "echo bar"],
+        parse "foo: bar baz;echo foo\n\techo bar\n" @?= rule [M.Lit "foo"] [M.Lit "bar", M.Lit "baz"] [M.Seq $ Seq.fromList [M.Lit "echo foo"], M.Seq $ Seq.fromList [M.Lit "echo bar"]],
       testCase "Target with macro expansion" $
-        parse "$(MAIN):\n" @?= rule [M.Exp (M.Lit "MAIN")] [] []
+        parse "$(MAIN):\n" @?= rule [M.Exp (M.Lit "MAIN")] [] [],
+      testCase "Command with macro expansion" $
+        parse "foo:\n\techo ${BAR}\n" @?= rule [M.Lit "foo"] [] [M.Seq (Seq.fromList [M.Lit "echo ", M.Exp (M.Lit "BAR")])]
     ]
   where
     parse :: String -> Either Parsec.ParseError P.Rule
@@ -108,7 +110,7 @@ mkTests =
         let assign = M.Assign "foo" M.Delayed (M.Seq $ Seq.fromList [M.Lit "bar"])
          in parse "foo = bar\n" @?= Right [P.MkAssign assign],
       testCase "rule" $
-        let rule = P.Rule (Seq.fromList [M.Lit "foo"]) (Seq.empty) (Seq.fromList [M.Lit "bar"])
+        let rule = P.Rule (Seq.fromList [M.Lit "foo"]) (Seq.empty) (Seq.fromList [M.Seq $ Seq.fromList [M.Lit "bar"]])
          in parse "foo:\n\tbar\n" @?= Right [P.MkRule rule],
       testCase "include" $
         let paths = Seq.fromList [M.Lit "foo", M.Lit "bar"]

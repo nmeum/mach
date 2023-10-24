@@ -140,10 +140,10 @@ targetRule = do
   targets <- Seq.fromList <$> sepBy1 (tokenLit targetChar) blank
   _ <- char ':' >> (blank <|> lookAhead newline)
   prereqs <- Seq.fromList <$> sepBy (tokenLit targetChar) blank
-  command <- optionMaybe (char ';' >> token)
+  command <- optionMaybe (char ';' >> tokens)
   _ <- newline
 
-  cmds <- Seq.fromList <$> many (char '\t' >> (token <* newline))
+  cmds <- Seq.fromList <$> many (char '\t' >> (tokens <* newline))
   pure $ Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
 
 include :: Parser (Seq.Seq M.Token)
