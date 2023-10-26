@@ -1,8 +1,12 @@
 -- | Provides an abstraction expansion of $Makefile$ macros.
 module Mach.Macro where
 
+import qualified Data.Map as Map
 import Data.Sequence (Seq)
 import qualified Data.Text as T
+
+-- | Makefile environment consisting of macro definitions.
+type Env = Map.Map T.Text T.Text
 
 -- | Tokens of text which are potentially subject to macro expansion.
 data Token
@@ -48,3 +52,13 @@ instance Show Flavor where
   show System = "!="
   show Cond = "?="
   show Append = "+="
+
+------------------------------------------------------------------------
+
+-- Expand a given macro in the context of a given environment.
+expand :: Env -> Token -> T.Text
+expand _ (Lit t) = t
+expand env (Exp t) = case Map.lookup (expand env t) env of
+  Just x -> x
+  Nothing -> T.empty
+expand env (Seq s) = foldr (\x acc -> expand env x `T.append` acc) T.empty s
