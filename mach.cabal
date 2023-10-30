@@ -19,6 +19,7 @@ common warnings
 library
     import:           warnings
     exposed-modules:
+        Mach.Executor,
         Mach.Parser,
         Mach.Macro
     -- other-modules:
