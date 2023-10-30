@@ -1,13 +1,15 @@
 module Mach.Exec where
 
-import Data.Maybe (catMaybes)
 import Control.Monad (filterM)
 import Data.Foldable (toList)
 import qualified Data.Map as Map
+import Data.Maybe (catMaybes)
 import Data.Text (unpack)
 import qualified Data.Text as T
 import Mach.Eval
+import Mach.Macro (expand)
 import System.Directory (doesPathExist, getModificationTime)
+import System.Process (callCommand)
 
 data FileTarget = FileTarget FilePath TgtDef
 
@@ -25,7 +27,11 @@ newerPreqs (FileTarget name (Target preqs _)) = do
 ------------------------------------------------------------------------
 
 buildTarget :: MkDef -> FileTarget -> IO ()
-buildTarget = error "not implemented"
+buildTarget (MkDef env _) (FileTarget _ (Target _ cmds)) = do
+  -- TODO: Make sure each line is expanded individually
+  -- Requires changes to the Makefile parser.
+  let expanded = fmap (expand env) cmds
+  mapM_ (callCommand . unpack) expanded
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name (Target preqs _)) = do
@@ -35,8 +41,8 @@ maybeBuild mk target@(FileTarget name (Target preqs _)) = do
   if targetExists && null newerDepends
     then pure False
     else do
-        -- TODO: Complain about non-existing files for which no targets are defined.
-        let depends = catMaybes $ toList $ fmap (lookupTarget mk) preqs
-        mapM_ (maybeBuild mk) depends
+      -- TODO: Complain about non-existing files for which no targets are defined.
+      let depends = catMaybes $ toList $ fmap (lookupTarget mk) preqs
+      mapM_ (maybeBuild mk) depends
 
-        buildTarget mk target >> pure True
+      buildTarget mk target >> pure True
