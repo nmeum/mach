@@ -18,6 +18,20 @@ lookupTarget :: MkDef -> T.Text -> Maybe FileTarget
 lookupTarget (MkDef _ targets) name =
   FileTarget (unpack name) <$> Map.lookup name targets
 
+-- Lookup the given target. If neither a target nor a file
+-- with the given name exists, then throw an error. If no
+-- target but a file exists, return Nothing.
+targetOrFile :: MkDef -> T.Text -> IO (Maybe FileTarget)
+targetOrFile mk name =
+  case lookupTarget mk name of
+    Just x -> pure $ Just x
+    Nothing -> do
+      exists <- doesPathExist $ unpack name
+      -- TODO: Throw a custom exception here
+      if exists
+        then pure Nothing
+        else fail $ "no target or file named " ++ show name
+
 newerPreqs :: FileTarget -> IO [FilePath]
 newerPreqs (FileTarget name (Target preqs _)) = do
   targetTime <- getModificationTime name
@@ -45,8 +59,7 @@ maybeBuild mk target@(FileTarget name (Target preqs _)) = do
   if targetExists && null newerDepends
     then pure False
     else do
-      -- TODO: Complain about non-existing files for which no targets are defined.
-      let depends = catMaybes $ toList $ fmap (lookupTarget mk) preqs
-      mapM_ (maybeBuild mk) depends
+      depends <- mapM (targetOrFile mk) preqs
+      mapM_ (maybeBuild mk) (catMaybes $ toList depends)
 
       buildTarget mk target >> pure True
