@@ -1,4 +1,4 @@
-module Mach.Executor (eval) where
+module Mach.Eval (eval) where
 
 import Data.Foldable (toList)
 import qualified Data.Map as Map
