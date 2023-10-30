@@ -1,5 +1,6 @@
 module Mach.Exec where
 
+import Data.Maybe (catMaybes)
 import Control.Monad (filterM)
 import Data.Foldable (toList)
 import qualified Data.Map as Map
@@ -10,8 +11,8 @@ import System.Directory (doesPathExist, getModificationTime)
 
 data FileTarget = FileTarget FilePath TgtDef
 
-lookup :: MkDef -> T.Text -> Maybe FileTarget
-lookup (MkDef _ targets) name =
+lookupTarget :: MkDef -> T.Text -> Maybe FileTarget
+lookupTarget (MkDef _ targets) name =
   FileTarget (unpack name) <$> Map.lookup name targets
 
 newerPreqs :: FileTarget -> IO [FilePath]
@@ -26,12 +27,16 @@ newerPreqs (FileTarget name (Target preqs _)) = do
 buildTarget :: MkDef -> FileTarget -> IO ()
 buildTarget = error "not implemented"
 
-maybeBuild :: MkDef -> FileTarget -> IO (Bool)
-maybeBuild mk target@(FileTarget name _) = do
+maybeBuild :: MkDef -> FileTarget -> IO Bool
+maybeBuild mk target@(FileTarget name (Target preqs _)) = do
   targetExists <- doesPathExist name
-  -- TODO: Actually need to build the prerequisites here.
-  preqsTargets <- newerPreqs target
+  newerDepends <- newerPreqs target
 
-  if targetExists && null preqsTargets
+  if targetExists && null newerDepends
     then pure False
-    else buildTarget mk target >> pure True
+    else do
+        -- TODO: Complain about non-existing files for which no targets are defined.
+        let depends = catMaybes $ toList $ fmap (lookupTarget mk) preqs
+        mapM_ (maybeBuild mk) depends
+
+        buildTarget mk target >> pure True
