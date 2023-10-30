@@ -9,6 +9,7 @@ import qualified Data.Text as T
 import Mach.Eval
 import Mach.Macro (expand)
 import System.Directory (doesPathExist, getModificationTime)
+import System.IO.Unsafe (unsafeInterleaveIO)
 import System.Process (callCommand)
 
 data FileTarget = FileTarget FilePath TgtDef
@@ -36,7 +37,10 @@ buildTarget (MkDef env _) (FileTarget _ (Target _ cmds)) = do
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name (Target preqs _)) = do
   targetExists <- doesPathExist name
-  newerDepends <- newerPreqs target
+
+  -- Make sure newerDepends is lazy evaluated. Otherwise,
+  -- the file may not exist and getModificationTime fails.
+  newerDepends <- unsafeInterleaveIO $ newerPreqs target
 
   if targetExists && null newerDepends
     then pure False
