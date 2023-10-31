@@ -41,15 +41,17 @@ newerPreqs (FileTarget name (Target preqs _)) = do
 
 ------------------------------------------------------------------------
 
+-- | Build a given target, including all dependencies that need to be rebuild.
 buildTarget :: MkDef -> FileTarget -> IO ()
-buildTarget (MkDef env _) (FileTarget _ (Target _ cmds)) = do
-  -- TODO: Make sure each line is expanded individually
-  -- Requires changes to the Makefile parser.
+buildTarget mk@(MkDef env _) (FileTarget _ (Target preqs cmds)) = do
+  depends <- mapM (targetOrFile mk) preqs
+  mapM_ (maybeBuild mk) (catMaybes $ toList depends)
+
   let expanded = fmap (expand env) cmds
   mapM_ (callCommand . unpack) expanded
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
-maybeBuild mk target@(FileTarget name (Target preqs _)) = do
+maybeBuild mk target@(FileTarget name (Target _ _)) = do
   targetExists <- doesPathExist name
 
   -- Make sure newerDepends is lazy evaluated. Otherwise,
@@ -58,8 +60,4 @@ maybeBuild mk target@(FileTarget name (Target preqs _)) = do
 
   if targetExists && null newerDepends
     then pure False
-    else do
-      depends <- mapM (targetOrFile mk) preqs
-      mapM_ (maybeBuild mk) (catMaybes $ toList depends)
-
-      buildTarget mk target >> pure True
+    else buildTarget mk target >> pure True
