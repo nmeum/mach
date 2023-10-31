@@ -3,7 +3,6 @@ module Mach.Parser where
 
 import Control.Monad (void)
 import qualified Data.Sequence as Seq
-import qualified Data.Text as T
 import qualified Mach.Macro as M
 import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
@@ -61,8 +60,8 @@ fnChar = alphaNum <|> oneOf "._-"
 -- | Parse a macro name, according to portable macro names should
 -- consist exclusively of characters from the portabel filename
 -- character set.
-macroName :: Parser T.Text
-macroName = T.pack <$> many1 fnChar
+macroName :: Parser String
+macroName = many1 fnChar
 
 -- | Parse a target name character. As per POSIX, target names should
 -- only consist of slashes, hyphens, periods, underscores, digits and
@@ -121,14 +120,14 @@ tokenLit literal =
     <|> litToken
   where
     escDollar :: Parser M.Token
-    escDollar = bind "$$" (M.Lit $ T.pack "$")
+    escDollar = bind "$$" (M.Lit "$")
 
     escNewline :: Parser M.Token
-    escNewline = M.Lit (T.pack " ") <$ (string "\\\n" >> maybeBlanks)
+    escNewline = M.Lit " " <$ (string "\\\n" >> maybeBlanks)
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser M.Token
-    litToken = M.Lit <$> (T.pack <$> many1 literal)
+    litToken = M.Lit <$> many1 literal
 
 -- | Parse a sequence of zero or more 'M.Token'.
 tokens :: Parser M.Token

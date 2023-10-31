@@ -4,8 +4,6 @@ import Control.Monad (filterM)
 import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
-import Data.Text (unpack)
-import qualified Data.Text as T
 import Mach.Eval
 import Mach.Macro (expand)
 import System.Directory (doesPathExist, getModificationTime)
@@ -14,19 +12,19 @@ import System.Process (callCommand)
 
 data FileTarget = FileTarget FilePath TgtDef
 
-lookupTarget :: MkDef -> T.Text -> Maybe FileTarget
+lookupTarget :: MkDef -> String -> Maybe FileTarget
 lookupTarget (MkDef _ targets) name =
-  FileTarget (unpack name) <$> Map.lookup name targets
+  FileTarget name <$> Map.lookup name targets
 
 -- Lookup the given target. If neither a target nor a file
 -- with the given name exists, then throw an error. If no
 -- target but a file exists, return Nothing.
-targetOrFile :: MkDef -> T.Text -> IO (Maybe FileTarget)
+targetOrFile :: MkDef -> String -> IO (Maybe FileTarget)
 targetOrFile mk name =
   case lookupTarget mk name of
     Just x -> pure $ Just x
     Nothing -> do
-      exists <- doesPathExist $ unpack name
+      exists <- doesPathExist name
       -- TODO: Throw a custom exception here
       if exists
         then pure Nothing
@@ -35,9 +33,7 @@ targetOrFile mk name =
 newerPreqs :: FileTarget -> IO [FilePath]
 newerPreqs (FileTarget name (Target preqs _)) = do
   targetTime <- getModificationTime name
-  filterM (fmap (targetTime >) . getModificationTime) lst
-  where
-    lst = toList (unpack <$> preqs)
+  filterM (fmap (targetTime >) . getModificationTime) $ toList preqs
 
 ------------------------------------------------------------------------
 
@@ -48,7 +44,7 @@ buildTarget mk@(MkDef env _) (FileTarget _ (Target preqs cmds)) = do
   mapM_ (maybeBuild mk) (catMaybes $ toList depends)
 
   let expanded = fmap (expand env) cmds
-  mapM_ (callCommand . unpack) expanded
+  mapM_ callCommand expanded
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name (Target _ _)) = do

@@ -32,7 +32,6 @@ library
         -- See: https://downloads.haskell.org/~ghc/9.4.7/docs/users_guide/9.4.7-notes.html#included-libraries
         base       ^>=4.17.2.0,
         parsec     ^>=3.1.16.1,
-        text       ^>=2.0.2,
         containers ^>=0.6.7,
         directory  ^>=1.3.7.1,
         process    ^>=1.6.17.0,
@@ -47,7 +46,6 @@ executable mach
     build-depends:
         base   ^>=4.17.2.0,
         parsec ^>=3.1.16.1,
-        text   ^>=2.0.2,
         mach
 
     hs-source-dirs:   exe
@@ -65,7 +63,6 @@ test-suite mach-test
         base         ^>=4.17.2.0,
         parsec       ^>=3.1.16.1,
         containers   ^>=0.6.7,
-        text         ^>=2.0.2,
         tasty        ^>=1.4.2.3,
         tasty-hunit  ^>=0.10.0.3,
         mach

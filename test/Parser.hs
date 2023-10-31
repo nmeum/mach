@@ -1,10 +1,7 @@
-{-# LANGUAGE OverloadedStrings #-}
-
 module Parser (mkParser) where
 
 import Data.Either (isLeft)
 import qualified Data.Sequence as Seq
-import qualified Data.Text as T
 import qualified Mach.Macro as M
 import qualified Mach.Parser as P
 import Test.Tasty
@@ -53,7 +50,7 @@ assignTests =
     parseErr :: String -> Bool
     parseErr = isLeft . parse
 
-    assign :: T.Text -> M.Flavor -> M.Token -> Either Parsec.ParseError M.Assign
+    assign :: String -> M.Flavor -> M.Token -> Either Parsec.ParseError M.Assign
     assign n f t = Right $ M.Assign n f t
 
 ruleTests :: TestTree

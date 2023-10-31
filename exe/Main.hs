@@ -1,7 +1,6 @@
 module Main where
 
 import Data.Maybe (fromJust)
-import qualified Data.Text as T
 import Mach.Eval (eval)
 import Mach.Exec (lookupTarget, maybeBuild)
 import Mach.Parser (mkFile)
@@ -18,7 +17,7 @@ printAST file = do
       putStrLn $ show ast
       let mkDef = eval ast
 
-      _ <- maybeBuild mkDef (fromJust $ lookupTarget mkDef (T.pack "all"))
+      _ <- maybeBuild mkDef (fromJust $ lookupTarget mkDef "all")
       pure ()
 
 main :: IO ()

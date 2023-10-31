@@ -2,16 +2,16 @@
 module Mach.Macro where
 
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
-import qualified Data.Text as T
 
 -- | Makefile environment consisting of macro definitions.
-type Env = Map.Map T.Text T.Text
+type Env = Map.Map String String
 
 -- | Tokens of text which are potentially subject to macro expansion.
 data Token
   = -- | Literal, not subject to macro expansion
-    Lit T.Text
+    Lit String
   | -- | Macro expansion
     Exp Token
   | -- | Sequence text
@@ -22,7 +22,7 @@ data Token
 data Assign
   = Assign
       -- | Unique identifier for the macro
-      T.Text
+      String
       -- | Assignment type
       Flavor
       -- | Right value of the assignment
@@ -56,9 +56,7 @@ instance Show Flavor where
 ------------------------------------------------------------------------
 
 -- Expand a given macro in the context of a given environment.
-expand :: Env -> Token -> T.Text
+expand :: Env -> Token -> String
 expand _ (Lit t) = t
-expand env (Exp t) = case Map.lookup (expand env t) env of
-  Just x -> x
-  Nothing -> T.empty
-expand env (Seq s) = foldr (\x acc -> expand env x `T.append` acc) T.empty s
+expand env (Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
+expand env (Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
