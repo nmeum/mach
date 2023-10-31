@@ -1,5 +1,9 @@
 module Main where
 
+import Data.Maybe (fromJust)
+import qualified Data.Text as T
+import Mach.Eval (eval)
+import Mach.Exec (lookupTarget, maybeBuild)
 import Mach.Parser (mkFile)
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
@@ -10,7 +14,12 @@ printAST file = do
   res <- P.parseFromFile mkFile file
   case res of
     Left err -> hPutStrLn stderr (show err)
-    Right ast -> putStrLn $ show ast
+    Right ast -> do
+      putStrLn $ show ast
+      let mkDef = eval ast
+
+      _ <- maybeBuild mkDef (fromJust $ lookupTarget mkDef (T.pack "all"))
+      pure ()
 
 main :: IO ()
 main = do
