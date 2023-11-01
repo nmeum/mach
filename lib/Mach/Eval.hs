@@ -1,5 +1,14 @@
 -- | This module performs Makefile macro expansion.
-module Mach.Eval (TgtDef (..), MkDef (..), getCmds, firstTarget, eval) where
+module Mach.Eval
+  ( TgtDef,
+    MkDef,
+    getPreqs,
+    firstTarget,
+    lookupRule,
+    getCmds,
+    eval,
+  )
+where
 
 import Control.Monad (foldM)
 import qualified Data.Map as Map
@@ -15,15 +24,29 @@ data TgtDef
       [T.Token]
   deriving (Show)
 
-data MkDef = MkDef T.Env (Maybe String) (Map.Map String TgtDef)
+data MkDef
+  = MkDef
+      -- | Macros defined in this Makefile.
+      T.Env
+      -- | First "normal" target defined in the Makefile.
+      (Maybe String)
+      -- | Targets defined in this Makefile.
+      (Map.Map String TgtDef)
   deriving (Show)
-
-firstTarget :: MkDef -> Maybe String
-firstTarget (MkDef _ fstTarget _) = fstTarget
 
 ------------------------------------------------------------------------
 
--- TODO: Utilize information hiding to prevent direct commands access.
+-- | Obtain the first target that is not a special target or an
+-- inference rule. 'Nothing' if the Makefile defines no targets.
+firstTarget :: MkDef -> Maybe String
+firstTarget (MkDef _ fstTarget _) = fstTarget
+
+lookupRule :: MkDef -> String -> Maybe TgtDef
+lookupRule (MkDef _ _ targets) = flip Map.lookup targets
+
+getPreqs :: TgtDef -> [String]
+getPreqs (Target preqs _) = preqs
+
 getCmds :: MkDef -> TgtDef -> [String]
 getCmds (MkDef env _ _) (Target _ cmds) =
   fmap (expand env) cmds
