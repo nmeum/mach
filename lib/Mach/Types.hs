@@ -2,7 +2,7 @@
 module Mach.Types where
 
 import qualified Data.Map as Map
-import Data.Sequence (Seq)
+import qualified Data.Sequence as Seq
 
 -- | Makefile environment consisting of macro definitions.
 type Env = Map.Map String String
@@ -14,7 +14,7 @@ data Token
   | -- | Macro expansion
     Exp Token
   | -- | Sequence text
-    Seq (Seq Token)
+    Seq (Seq.Seq Token)
   deriving (Show, Eq)
 
 -- | A macro definition, i.e. an assignment.
@@ -51,3 +51,28 @@ instance Show Flavor where
   show System = "!="
   show Cond = "?="
   show Append = "+="
+
+------------------------------------------------------------------------
+
+-- | Makefile specification, a sequence of statements.
+type MkFile = [MkStat]
+
+-- | Makefile rule which relates targets to commands for their creation.
+data Rule
+  = Rule
+      -- | Targets (non-empty)
+      (Seq.Seq Token)
+      -- | Prerequisites
+      (Seq.Seq Token)
+      -- | Commands
+      (Seq.Seq Token)
+  deriving
+    (Show, Eq)
+
+-- | A statement within a @Makefile@. Three types of statements are
+-- supported: assignments, includes, and rules.
+data MkStat
+  = MkAssign Assign
+  | MkInclude (Seq.Seq Token)
+  | MkRule Rule
+  deriving (Show, Eq)

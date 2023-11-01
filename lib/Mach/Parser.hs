@@ -6,31 +6,6 @@ import qualified Data.Sequence as Seq
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
--- | Makefile specification, a sequence of statements.
-type MkFile = [MkStat]
-
--- | Makefile rule which relates targets to commands for their creation.
-data Rule
-  = Rule
-      -- | Targets (non-empty)
-      (Seq.Seq T.Token)
-      -- | Prerequisites
-      (Seq.Seq T.Token)
-      -- | Commands
-      (Seq.Seq T.Token)
-  deriving
-    (Show, Eq)
-
--- | A statement within a @Makefile@. Three types of statements are
--- supported: assignments, includes, and rules.
-data MkStat
-  = MkAssign T.Assign
-  | MkInclude (Seq.Seq T.Token)
-  | MkRule Rule
-  deriving (Show, Eq)
-
-------------------------------------------------------------------------
-
 -- Bind a given character to the given result.
 bind :: String -> a -> Parser a
 bind str val = val <$ string str
@@ -134,7 +109,7 @@ tokens :: Parser T.Token
 tokens = T.Seq . Seq.fromList <$> many token
 
 -- | Target rule which defines how targets are build.
-targetRule :: Parser Rule
+targetRule :: Parser T.Rule
 targetRule = do
   targets <- Seq.fromList <$> sepBy1 (tokenLit targetChar) blank
   _ <- char ':' >> (blank <|> lookAhead newline)
@@ -143,7 +118,7 @@ targetRule = do
   _ <- newline
 
   cmds <- Seq.fromList <$> many (char '\t' >> (tokens <* newline))
-  pure $ Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
+  pure $ T.Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
 
 include :: Parser (Seq.Seq T.Token)
 include = do
@@ -154,10 +129,10 @@ include = do
   pure $ Seq.fromList paths
 
 -- | Parse a POSIX @Makefile@.
-mkFile :: Parser MkFile
+mkFile :: Parser T.MkFile
 mkFile =
   many
-    ( try (MkAssign <$> assign <* newlines)
-        <|> try (MkRule <$> targetRule)
-        <|> try (MkInclude <$> include <* newlines)
+    ( try (T.MkAssign <$> assign <* newlines)
+        <|> try (T.MkRule <$> targetRule)
+        <|> try (T.MkInclude <$> include <* newlines)
     )
