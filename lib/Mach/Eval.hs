@@ -4,8 +4,8 @@ import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
-import Mach.Macro (Assign (..), Env, Flavor (..), Token (..))
 import qualified Mach.Parser as P
+import Mach.Types (Assign (..), Env, Flavor (..), Token (..))
 
 data TgtDef
   = Target

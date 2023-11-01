@@ -1,5 +1,5 @@
 -- | Provides an abstraction expansion of $Makefile$ macros.
-module Mach.Macro where
+module Mach.Types where
 
 import qualified Data.Map as Map
 import Data.Sequence (Seq)

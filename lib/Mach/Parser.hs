@@ -3,7 +3,7 @@ module Mach.Parser where
 
 import Control.Monad (void)
 import qualified Data.Sequence as Seq
-import qualified Mach.Macro as M
+import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
 -- | Makefile specification, a sequence of statements.
@@ -13,19 +13,19 @@ type MkFile = [MkStat]
 data Rule
   = Rule
       -- | Targets (non-empty)
-      (Seq.Seq M.Token)
+      (Seq.Seq T.Token)
       -- | Prerequisites
-      (Seq.Seq M.Token)
+      (Seq.Seq T.Token)
       -- | Commands
-      (Seq.Seq M.Token)
+      (Seq.Seq T.Token)
   deriving
     (Show, Eq)
 
 -- | A statement within a @Makefile@. Three types of statements are
 -- supported: assignments, includes, and rules.
 data MkStat
-  = MkAssign M.Assign
-  | MkInclude (Seq.Seq M.Token)
+  = MkAssign T.Assign
+  | MkInclude (Seq.Seq T.Token)
   | MkRule Rule
   deriving (Show, Eq)
 
@@ -71,28 +71,28 @@ targetChar = alphaNum <|> oneOf "/-._"
 
 -- | Parse an assignment operator, also refered to as a macro flavor
 -- in the POSIX standard. The implementation provided here should
--- be aligned with the 'Show' instance of 'M.Flavor'.
-assignOp :: Parser M.Flavor
+-- be aligned with the 'Show' instance of 'T.Flavor'.
+assignOp :: Parser T.Flavor
 assignOp =
-  bind "=" M.Delayed
-    <|> bind ":=" M.Immediate
-    <|> bind ":::=" M.StrictDelay
-    <|> bind "!=" M.System
-    <|> bind "?=" M.Cond
-    <|> bind "+=" M.Append
+  bind "=" T.Delayed
+    <|> bind ":=" T.Immediate
+    <|> bind ":::=" T.StrictDelay
+    <|> bind "!=" T.System
+    <|> bind "?=" T.Cond
+    <|> bind "+=" T.Append
 
 -- | Parse an assignment, i.e. a macro definition.
-assign :: Parser M.Assign
+assign :: Parser T.Assign
 assign = do
   mident <- macroName
   flavor <- blanks >> assignOp <* blanks
-  M.Assign mident flavor <$> tokens
+  T.Assign mident flavor <$> tokens
 
 -- | Parse a macro expanison.
-macroExpand :: Parser M.Token
-macroExpand = M.Exp <$> macroExpand'
+macroExpand :: Parser T.Token
+macroExpand = T.Exp <$> macroExpand'
   where
-    macroExpand' :: Parser M.Token
+    macroExpand' :: Parser T.Token
     macroExpand' =
       char '$'
         >> ( between (char '(') (char ')') inner
@@ -103,15 +103,15 @@ macroExpand = M.Exp <$> macroExpand'
     -- expansions, e.g. `${${BAR}}` or macro names. Using 'token' here
     -- is challenging as the closing brackets are also valid literals,
     -- hence would consume the closing bracket as a literal.
-    inner :: Parser M.Token
-    inner = macroExpand <|> (M.Lit <$> macroName)
+    inner :: Parser T.Token
+    inner = macroExpand <|> (T.Lit <$> macroName)
 
 -- | Parse a single token, i.e. an escaped newline, escaped @$@ character, macro expansion, or literal.
-token :: Parser M.Token
+token :: Parser T.Token
 token = tokenLit $ noneOf "#\n\\$"
 
 -- | Parse a token but use a custom parser for parsing of literal tokens.
-tokenLit :: Parser Char -> Parser M.Token
+tokenLit :: Parser Char -> Parser T.Token
 tokenLit literal =
   -- TODO: Skip comments in lexer
   try macroExpand
@@ -119,19 +119,19 @@ tokenLit literal =
     <|> escNewline
     <|> litToken
   where
-    escDollar :: Parser M.Token
-    escDollar = bind "$$" (M.Lit "$")
+    escDollar :: Parser T.Token
+    escDollar = bind "$$" (T.Lit "$")
 
-    escNewline :: Parser M.Token
-    escNewline = M.Lit " " <$ (string "\\\n" >> maybeBlanks)
+    escNewline :: Parser T.Token
+    escNewline = T.Lit " " <$ (string "\\\n" >> maybeBlanks)
 
     -- TODO: In noneOf, check that \ is followed by a newline.
-    litToken :: Parser M.Token
-    litToken = M.Lit <$> many1 literal
+    litToken :: Parser T.Token
+    litToken = T.Lit <$> many1 literal
 
--- | Parse a sequence of zero or more 'M.Token'.
-tokens :: Parser M.Token
-tokens = M.Seq . Seq.fromList <$> many token
+-- | Parse a sequence of zero or more 'T.Token'.
+tokens :: Parser T.Token
+tokens = T.Seq . Seq.fromList <$> many token
 
 -- | Target rule which defines how targets are build.
 targetRule :: Parser Rule
@@ -145,7 +145,7 @@ targetRule = do
   cmds <- Seq.fromList <$> many (char '\t' >> (tokens <* newline))
   pure $ Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
 
-include :: Parser (Seq.Seq M.Token)
+include :: Parser (Seq.Seq T.Token)
 include = do
   _ <- optionMaybe (char '-')
   _ <- string "include" >> blanks
