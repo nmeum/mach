@@ -4,7 +4,6 @@ module Mach.Parser where
 import Control.Exception (throwIO)
 import Control.Monad (void)
 import Mach.Error (MakeErr (..))
-import Mach.Eval (MkDef (..), eval)
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec
   ( Parser,
@@ -182,6 +181,3 @@ parseMkFile path = do
   case res of
     Left err -> throwIO $ ParserErr err
     Right mk -> pure mk
-
-makefile :: FilePath -> IO (MkDef, Maybe String)
-makefile path = eval <$> parseMkFile path
