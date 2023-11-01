@@ -11,6 +11,7 @@ import Text.ParserCombinators.Parsec
     alphaNum,
     between,
     char,
+    eof,
     lookAhead,
     many,
     many1,
@@ -156,6 +157,8 @@ mkFile =
         <|> try (T.MkRule <$> targetRule)
         <|> try (T.MkInclude <$> include <* newlines)
     )
+    -- Ensure that we parse the whole Makefile
+    <* eof
 
 ------------------------------------------------------------------------
 
