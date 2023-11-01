@@ -6,7 +6,25 @@ import Control.Monad (void)
 import Mach.Error (MakeErr (..))
 import Mach.Eval (MkDef (..), eval, expand)
 import qualified Mach.Types as T
-import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, parseFromFile, sepBy, sepBy1, string, try, (<|>))
+import Text.ParserCombinators.Parsec
+  ( Parser,
+    alphaNum,
+    between,
+    char,
+    lookAhead,
+    many,
+    many1,
+    newline,
+    noneOf,
+    oneOf,
+    optionMaybe,
+    parseFromFile,
+    sepBy,
+    sepBy1,
+    string,
+    try,
+    (<|>),
+  )
 
 -- Bind a given character to the given result.
 bind :: String -> a -> Parser a
