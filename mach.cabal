@@ -62,7 +62,6 @@ test-suite mach-test
     build-depends:
         base         ^>=4.17.2.0,
         parsec       ^>=3.1.16.1,
-        containers   ^>=0.6.7,
         tasty        ^>=1.4.2.3,
         tasty-hunit  ^>=0.10.0.3,
         mach

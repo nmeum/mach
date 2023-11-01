@@ -1,7 +1,6 @@
 module Mach.Exec where
 
 import Control.Monad (filterM)
-import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Mach.Eval
@@ -32,7 +31,7 @@ targetOrFile mk name =
 newerPreqs :: FileTarget -> IO [FilePath]
 newerPreqs (FileTarget name (Target preqs _)) = do
   targetTime <- getModificationTime name
-  filterM (fmap (targetTime >) . getModificationTime) $ toList preqs
+  filterM (fmap (targetTime >) . getModificationTime) preqs
 
 ------------------------------------------------------------------------
 
@@ -40,7 +39,7 @@ newerPreqs (FileTarget name (Target preqs _)) = do
 buildTarget :: MkDef -> FileTarget -> IO ()
 buildTarget mk (FileTarget _ target@(Target preqs _)) = do
   depends <- mapM (targetOrFile mk) preqs
-  mapM_ (maybeBuild mk) (catMaybes $ toList depends)
+  mapM_ (maybeBuild mk) (catMaybes depends)
 
   -- Actually build the target itself
   mapM_ callCommand $ getCmds mk target

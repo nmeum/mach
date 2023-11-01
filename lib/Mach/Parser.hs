@@ -2,7 +2,6 @@
 module Mach.Parser where
 
 import Control.Monad (void)
-import qualified Data.Sequence as Seq
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
 
@@ -106,27 +105,27 @@ tokenLit literal =
 
 -- | Parse a sequence of zero or more 'T.Token'.
 tokens :: Parser T.Token
-tokens = T.Seq . Seq.fromList <$> many token
+tokens = T.Seq <$> many token
 
 -- | Target rule which defines how targets are build.
 targetRule :: Parser T.Rule
 targetRule = do
-  targets <- Seq.fromList <$> sepBy1 (tokenLit targetChar) blank
+  targets <- sepBy1 (tokenLit targetChar) blank
   _ <- char ':' >> (blank <|> lookAhead newline)
-  prereqs <- Seq.fromList <$> sepBy (tokenLit targetChar) blank
+  prereqs <- sepBy (tokenLit targetChar) blank
   command <- optionMaybe (char ';' >> tokens)
   _ <- newline
 
-  cmds <- Seq.fromList <$> many (char '\t' >> (tokens <* newline))
-  pure $ T.Rule targets prereqs (maybe cmds (Seq.<| cmds) command)
+  cmds <- many (char '\t' >> (tokens <* newline))
+  pure $ T.Rule targets prereqs (maybe cmds (: cmds) command)
 
-include :: Parser (Seq.Seq T.Token)
+include :: Parser [T.Token]
 include = do
   _ <- optionMaybe (char '-')
   _ <- string "include" >> blanks
   paths <- sepBy1 (tokenLit $ noneOf " #\n\\$") blank
   _ <- maybeBlanks
-  pure $ Seq.fromList paths
+  pure paths
 
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser T.MkFile

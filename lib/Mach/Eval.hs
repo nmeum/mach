@@ -1,18 +1,16 @@
 -- | This module performs Makefile macro expansion.
 module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
 
-import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import qualified Data.Sequence as Seq
 import qualified Mach.Types as T
 
 data TgtDef
   = Target
       -- | Prerequisites (expanded)
-      (Seq.Seq String)
+      [String]
       -- | Commands
-      (Seq.Seq T.Token)
+      [T.Token]
   deriving (Show)
 
 data MkDef = MkDef T.Env (Map.Map String TgtDef)
@@ -23,7 +21,7 @@ data MkDef = MkDef T.Env (Map.Map String TgtDef)
 -- TODO: Utilize information hiding to prevent direct commands access.
 getCmds :: MkDef -> TgtDef -> [String]
 getCmds (MkDef env _) (Target _ cmds) =
-  toList $ fmap (expand env) cmds
+  fmap (expand env) cmds
 
 -- Expand a given macro in the context of a given environment.
 expand :: T.Env -> T.Token -> String
@@ -43,11 +41,10 @@ evalAssign env (T.Assign name ty val) =
 
 evalRule :: T.Env -> T.Rule -> Map.Map String TgtDef
 evalRule env (T.Rule tgts preqs cmds) =
-  let def = Target (exSeq preqs) cmds
-   in Map.fromList $ toList $ fmap (\tgt -> (tgt, def)) (exSeq tgts)
+  let def = Target (exLst preqs) cmds
+   in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
-    exSeq :: Seq.Seq T.Token -> Seq.Seq String
-    exSeq = fmap (expand env)
+    exLst = map (expand env)
 
 eval' :: MkDef -> T.MkFile -> MkDef
 eval' def [] = def

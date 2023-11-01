@@ -1,7 +1,6 @@
 module Parser (mkParser) where
 
 import Data.Either (isLeft)
-import qualified Data.Sequence as Seq
 import qualified Mach.Parser as P
 import qualified Mach.Types as T
 import Test.Tasty
@@ -13,10 +12,10 @@ assignTests =
   testGroup
     "assignments"
     [ testCase "Simple assignment of macro to string" $
-        let rvalue = T.Seq $ Seq.fromList [T.Lit "bar"]
+        let rvalue = T.Seq [T.Lit "bar"]
          in parse "foo = bar" @?= assign "foo" T.Delayed rvalue,
       testCase "Assignment with multiple blanks" $
-        let rvalue = T.Seq $ Seq.fromList [T.Lit "bar"]
+        let rvalue = T.Seq [T.Lit "bar"]
          in parse "foo   =     bar" @?= assign "foo" T.Delayed rvalue,
       testCase "Assignment with tab character" $
         assertBool "can only use blanks" $
@@ -25,19 +24,19 @@ assignTests =
         assertBool "missing blanks" $
           parseErr "foo=bar",
       testCase "Simple macro expansion" $
-        let rvalue = T.Seq $ Seq.fromList [T.Exp $ T.Lit "BAR"]
+        let rvalue = T.Seq [T.Exp $ T.Lit "BAR"]
          in parse "m_exp = ${BAR}" @?= assign "m_exp" T.Delayed rvalue,
       testCase "Nested macro expansion" $
-        let rvalue = T.Seq $ Seq.fromList [T.Exp $ T.Exp (T.Lit "FOO_BAR")]
+        let rvalue = T.Seq [T.Exp $ T.Exp (T.Lit "FOO_BAR")]
          in parse "nested := ${${FOO_BAR}}" @?= assign "nested" T.Immediate rvalue,
       testCase "Multi-token assignment" $
-        let rvalue = T.Seq $ Seq.fromList [T.Lit "a", T.Exp (T.Lit "b"), T.Lit "c"]
+        let rvalue = T.Seq [T.Lit "a", T.Exp (T.Lit "b"), T.Lit "c"]
          in parse "_ ?= a${b}c" @?= assign "_" T.Cond rvalue,
       testCase "Assignment with escaped dollar" $
-        let rvalue = T.Seq $ Seq.fromList [T.Lit "$", T.Lit "foo", T.Lit "$", T.Lit "bar"]
+        let rvalue = T.Seq [T.Lit "$", T.Lit "foo", T.Lit "$", T.Lit "bar"]
          in parse "a = $$foo$$bar" @?= assign "a" T.Delayed rvalue,
       testCase "Assignment with escaped newline" $
-        let rvalue = T.Seq $ Seq.fromList [T.Lit "foo", T.Lit " ", T.Lit "bar"]
+        let rvalue = T.Seq [T.Lit "foo", T.Lit " ", T.Lit "bar"]
          in parse "a = foo\\\nbar" @?= assign "a" T.Delayed rvalue,
       testCase "Invalid macro expansion" $
         assertBool "closing brackets are not valid macro names" $
@@ -58,26 +57,26 @@ ruleTests =
   testGroup
     "target rules"
     [ testCase "Single target, single prerequisite, single command" $
-        parse "foo: bar\n\tbaz\n" @?= rule [T.Lit "foo"] [T.Lit "bar"] [T.Seq $ Seq.fromList [T.Lit "baz"]],
+        parse "foo: bar\n\tbaz\n" @?= rule [T.Lit "foo"] [T.Lit "bar"] [T.Seq [T.Lit "baz"]],
       testCase "No prerequisite" $
-        parse "foo:\n\tbar\n" @?= rule [T.Lit "foo"] [] [T.Seq $ Seq.fromList [T.Lit "bar"]],
+        parse "foo:\n\tbar\n" @?= rule [T.Lit "foo"] [] [T.Seq [T.Lit "bar"]],
       testCase "No prerequisite, no commands" $
         parse "foo:\n" @?= rule [T.Lit "foo"] [] [],
       testCase "Multiple targets" $
-        parse "foo bar baz:\n\tcommand\n" @?= rule [T.Lit "foo", T.Lit "bar", T.Lit "baz"] [] [T.Seq $ Seq.fromList [T.Lit "command"]],
+        parse "foo bar baz:\n\tcommand\n" @?= rule [T.Lit "foo", T.Lit "bar", T.Lit "baz"] [] [T.Seq [T.Lit "command"]],
       testCase "Command on same line" $
-        parse "foo: bar baz;echo foo\n\techo bar\n" @?= rule [T.Lit "foo"] [T.Lit "bar", T.Lit "baz"] [T.Seq $ Seq.fromList [T.Lit "echo foo"], T.Seq $ Seq.fromList [T.Lit "echo bar"]],
+        parse "foo: bar baz;echo foo\n\techo bar\n" @?= rule [T.Lit "foo"] [T.Lit "bar", T.Lit "baz"] [T.Seq [T.Lit "echo foo"], T.Seq [T.Lit "echo bar"]],
       testCase "Target with macro expansion" $
         parse "$(MAIN):\n" @?= rule [T.Exp (T.Lit "MAIN")] [] [],
       testCase "Command with macro expansion" $
-        parse "foo:\n\techo ${BAR}\n" @?= rule [T.Lit "foo"] [] [T.Seq (Seq.fromList [T.Lit "echo ", T.Exp (T.Lit "BAR")])]
+        parse "foo:\n\techo ${BAR}\n" @?= rule [T.Lit "foo"] [] [T.Seq [T.Lit "echo ", T.Exp (T.Lit "BAR")]]
     ]
   where
     parse :: String -> Either Parsec.ParseError T.Rule
     parse = Parsec.parse P.targetRule ""
 
     rule :: [T.Token] -> [T.Token] -> [T.Token] -> Either Parsec.ParseError T.Rule
-    rule t p c = Right $ T.Rule (Seq.fromList t) (Seq.fromList p) (Seq.fromList c)
+    rule t p c = Right $ T.Rule t p c
 
 includeTests :: TestTree
 includeTests =
@@ -93,24 +92,24 @@ includeTests =
         parse "-include foo" @?= mkPaths [T.Lit "foo"]
     ]
   where
-    parse :: String -> Either Parsec.ParseError (Seq.Seq T.Token)
+    parse :: String -> Either Parsec.ParseError [T.Token]
     parse = Parsec.parse P.include ""
 
-    mkPaths :: [T.Token] -> Either Parsec.ParseError (Seq.Seq T.Token)
-    mkPaths = Right . Seq.fromList
+    mkPaths :: [T.Token] -> Either Parsec.ParseError [T.Token]
+    mkPaths = Right
 
 mkTests :: TestTree
 mkTests =
   testGroup
     "makefile parser"
     [ testCase "assignment" $
-        let assign = T.Assign "foo" T.Delayed (T.Seq $ Seq.fromList [T.Lit "bar"])
+        let assign = T.Assign "foo" T.Delayed (T.Seq [T.Lit "bar"])
          in parse "foo = bar\n" @?= Right [T.MkAssign assign],
       testCase "rule" $
-        let rule = T.Rule (Seq.fromList [T.Lit "foo"]) (Seq.empty) (Seq.fromList [T.Seq $ Seq.fromList [T.Lit "bar"]])
+        let rule = T.Rule [T.Lit "foo"] [] [T.Seq [T.Lit "bar"]]
          in parse "foo:\n\tbar\n" @?= Right [T.MkRule rule],
       testCase "include" $
-        let paths = Seq.fromList [T.Lit "foo", T.Lit "bar"]
+        let paths = [T.Lit "foo", T.Lit "bar"]
          in parse "include foo bar\n" @?= Right [T.MkInclude paths]
     ]
   where

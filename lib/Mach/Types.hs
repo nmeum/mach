@@ -2,7 +2,6 @@
 module Mach.Types where
 
 import qualified Data.Map as Map
-import qualified Data.Sequence as Seq
 
 -- | Makefile environment consisting of macro definitions.
 type Env = Map.Map String String
@@ -14,7 +13,7 @@ data Token
   | -- | Macro expansion
     Exp Token
   | -- | Sequence text
-    Seq (Seq.Seq Token)
+    Seq [Token]
   deriving (Show, Eq)
 
 -- | A macro definition, i.e. an assignment.
@@ -61,11 +60,11 @@ type MkFile = [MkStat]
 data Rule
   = Rule
       -- | Targets (non-empty)
-      (Seq.Seq Token)
+      [Token]
       -- | Prerequisites
-      (Seq.Seq Token)
+      [Token]
       -- | Commands
-      (Seq.Seq Token)
+      [Token]
   deriving
     (Show, Eq)
 
@@ -73,6 +72,6 @@ data Rule
 -- supported: assignments, includes, and rules.
 data MkStat
   = MkAssign Assign
-  | MkInclude (Seq.Seq Token)
+  | MkInclude [Token]
   | MkRule Rule
   deriving (Show, Eq)
