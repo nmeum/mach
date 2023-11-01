@@ -4,7 +4,7 @@ module Mach.Parser where
 import Control.Exception (throwIO)
 import Control.Monad (void)
 import Mach.Error (MakeErr (..))
-import Mach.Eval (MkDef (..), eval, expand)
+import Mach.Eval (MkDef (..), eval)
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec
   ( Parser,
@@ -184,18 +184,4 @@ parseMkFile path = do
     Right mk -> pure mk
 
 makefile :: FilePath -> IO (MkDef, Maybe String)
-makefile path = do
-  mk <- parseMkFile path
-  let mkDef = eval mk
-
-  -- TODO: Refactor extraction of first target.
-  pure (mkDef, firstRule mk >>= Just . firstTarget mkDef)
-  where
-    firstRule :: T.MkFile -> Maybe T.Rule
-    firstRule [] = Nothing
-    firstRule ((T.MkRule rule) : _) = Just rule
-    firstRule (_ : xs) = firstRule xs
-
-    firstTarget :: MkDef -> T.Rule -> String
-    firstTarget (MkDef env _) (T.Rule targets _ _) =
-      expand env $ head targets
+makefile path = eval <$> parseMkFile path
