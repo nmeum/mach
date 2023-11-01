@@ -9,12 +9,14 @@ import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec
   ( Parser,
     alphaNum,
+    anyChar,
     between,
     char,
     eof,
     lookAhead,
     many,
     many1,
+    manyTill,
     newline,
     noneOf,
     oneOf,
@@ -22,6 +24,7 @@ import Text.ParserCombinators.Parsec
     parseFromFile,
     sepBy,
     sepBy1,
+    skipMany,
     string,
     try,
     (<|>),
@@ -149,16 +152,27 @@ include = do
   _ <- maybeBlanks
   pure paths
 
+lexeme :: Parser a -> Parser a
+lexeme p = do
+  r <- p
+  _ <- many blank
+  _ <- many newline
+  _ <- skipMany (try comment >> many blank >> many newline)
+  return r
+  where
+    comment :: Parser String
+    comment = char '#' >> manyTill anyChar newline
+
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser T.MkFile
 mkFile =
   many
-    ( try (T.MkAssign <$> assign <* newlines)
-        <|> try (T.MkRule <$> targetRule)
-        <|> try (T.MkInclude <$> include <* newlines)
+    ( try (T.MkAssign <$> lexeme assign)
+        <|> try (T.MkRule <$> lexeme targetRule)
+        <|> try (T.MkInclude <$> lexeme include)
     )
     -- Ensure that we parse the whole Makefile
-    <* eof
+    <* lexeme eof
 
 ------------------------------------------------------------------------
 
