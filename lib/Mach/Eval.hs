@@ -1,10 +1,10 @@
 -- | This module performs Makefile macro expansion.
---
--- TODO: Do not export expand.
 module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
 
+import Control.Monad (foldM)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 
 data TgtDef
@@ -50,27 +50,30 @@ evalRule env (T.Rule tgts preqs cmds) =
   where
     exLst = map (expand env)
 
-eval' :: MkDef -> T.MkFile -> MkDef
-eval' def [] = def
+eval' :: MkDef -> T.MkFile -> IO MkDef
+eval' def [] = pure def
 eval' (MkDef env targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
    in eval' (MkDef newEnviron targets) xs
-eval' _ ((T.MkInclude _paths) : _xs) =
-  -- TODO:
-  --  • Parse each path element as a Makefile
-  --  • Evaluate each parsed Makefile recursively
-  --  • Create a new MkDef value
-  error "include support not yet implemented"
+eval' def@(MkDef env _) ((T.MkInclude elems) : _xs) = do
+  let paths = map (expand env) elems
+  foldM
+    ( \mkDef path -> do
+        mk <- parseMkFile path
+        eval' mkDef mk
+    )
+    def
+    paths
 eval' (MkDef env targets) ((T.MkRule rule) : xs) =
   let newTargets = Map.union (evalRule env rule) targets
    in eval' (MkDef env newTargets) xs
 
 -- TODO: Extract command-line environment here.
-eval :: T.MkFile -> (MkDef, Maybe String)
-eval mkFile =
-  let mkDef = eval' (MkDef Map.empty Map.empty) mkFile
-   in (mkDef, firstTarget mkDef mkFile)
+eval :: T.MkFile -> IO (MkDef, Maybe String)
+eval mkFile = do
+  mkDef <- eval' (MkDef Map.empty Map.empty) mkFile
+  pure (mkDef, firstTarget mkDef mkFile)
   where
     firstTarget :: MkDef -> T.MkFile -> Maybe String
     firstTarget _ [] = Nothing

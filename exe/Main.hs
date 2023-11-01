@@ -11,7 +11,7 @@ import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
 
 makefile :: FilePath -> IO (MkDef, Maybe String)
-makefile path = eval <$> parseMkFile path
+makefile path = parseMkFile path >>= eval
 
 runMk :: FilePath -> IO ()
 runMk path = do
