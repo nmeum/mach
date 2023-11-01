@@ -1,3 +1,4 @@
+-- | This module performs Makefile macro expansion.
 module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
 
 import Data.Foldable (toList)
