@@ -1,28 +1,23 @@
 module Main where
 
+import Control.Monad (void)
 import Data.Maybe (fromJust)
-import Mach.Eval (eval)
 import Mach.Exec (lookupTarget, maybeBuild)
-import Mach.Parser (mkFile)
+import Mach.Parser (makefile)
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
-import qualified Text.ParserCombinators.Parsec as P
 
-printAST :: FilePath -> IO ()
-printAST file = do
-  res <- P.parseFromFile mkFile file
-  case res of
-    Left err -> hPutStrLn stderr (show err)
-    Right ast -> do
-      putStrLn $ show ast
-      let mkDef = eval ast
-
-      _ <- maybeBuild mkDef (fromJust $ lookupTarget mkDef "all")
-      pure ()
+runMk :: FilePath -> IO ()
+runMk path = do
+  (mk, firstTarget) <- makefile path
+  case firstTarget of
+    Nothing -> fail "no targets defined"
+    Just tg -> void $ maybeBuild mk (fromJust $ lookupTarget mk tg)
+  pure ()
 
 main :: IO ()
 main = do
   args <- getArgs
   if length args /= 1
     then hPutStrLn stderr "Missing file argument"
-    else printAST $ head args
+    else runMk $ head args

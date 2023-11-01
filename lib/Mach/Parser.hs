@@ -2,8 +2,9 @@
 module Mach.Parser where
 
 import Control.Monad (void)
+import Mach.Eval (MkDef (..), eval, expand)
 import qualified Mach.Types as T
-import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, sepBy, sepBy1, string, try, (<|>))
+import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, parseFromFile, sepBy, sepBy1, string, try, (<|>))
 
 -- Bind a given character to the given result.
 bind :: String -> a -> Parser a
@@ -135,3 +136,30 @@ mkFile =
         <|> try (T.MkRule <$> targetRule)
         <|> try (T.MkInclude <$> include <* newlines)
     )
+
+------------------------------------------------------------------------
+
+parseMkFile :: FilePath -> IO (T.MkFile)
+parseMkFile path = do
+  res <- parseFromFile mkFile path
+  -- TODO: Custom exception here
+  case res of
+    Left err -> fail $ show err
+    Right mk -> pure mk
+
+makefile :: FilePath -> IO (MkDef, Maybe String)
+makefile path = do
+  mk <- parseMkFile path
+  let mkDef = eval mk
+
+  -- TODO: Refactor extraction of first target.
+  pure (mkDef, firstRule mk >>= Just . firstTarget mkDef)
+  where
+    firstRule :: T.MkFile -> Maybe T.Rule
+    firstRule [] = Nothing
+    firstRule ((T.MkRule rule) : _) = Just rule
+    firstRule (_ : xs) = firstRule xs
+
+    firstTarget :: MkDef -> T.Rule -> String
+    firstTarget (MkDef env _) (T.Rule targets _ _) =
+      expand env $ head targets

@@ -1,5 +1,7 @@
 -- | This module performs Makefile macro expansion.
-module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
+--
+-- TODO: Do not export expand.
+module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval, expand) where
 
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
