@@ -1,5 +1,5 @@
 -- | This module performs Makefile macro expansion.
-module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
+module Mach.Eval (TgtDef (..), MkDef (..), getCmds, firstTarget, eval) where
 
 import Control.Monad (foldM)
 import qualified Data.Map as Map
@@ -15,14 +15,17 @@ data TgtDef
       [T.Token]
   deriving (Show)
 
-data MkDef = MkDef T.Env (Map.Map String TgtDef)
+data MkDef = MkDef T.Env (Maybe String) (Map.Map String TgtDef)
   deriving (Show)
+
+firstTarget :: MkDef -> Maybe String
+firstTarget (MkDef _ fstTarget _) = fstTarget
 
 ------------------------------------------------------------------------
 
 -- TODO: Utilize information hiding to prevent direct commands access.
 getCmds :: MkDef -> TgtDef -> [String]
-getCmds (MkDef env _) (Target _ cmds) =
+getCmds (MkDef env _ _) (Target _ cmds) =
   fmap (expand env) cmds
 
 -- Expand a given macro in the context of a given environment.
@@ -50,13 +53,13 @@ evalRule env (T.Rule tgts preqs cmds) =
   where
     exLst = map (expand env)
 
-eval' :: MkDef -> T.MkFile -> IO MkDef
-eval' def [] = pure def
-eval' (MkDef env targets) ((T.MkAssign assign) : xs) =
+eval'' :: MkDef -> T.MkFile -> IO MkDef
+eval'' def [] = pure def
+eval'' (MkDef env fstTgt targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
-   in eval' (MkDef newEnviron targets) xs
-eval' def@(MkDef env _) ((T.MkInclude elems) : _xs) = do
+   in eval'' (MkDef newEnviron fstTgt targets) xs
+eval'' def@(MkDef env _ _) ((T.MkInclude elems) : _xs) = do
   let paths = map (expand env) elems
   foldM
     ( \mkDef path -> do
@@ -65,19 +68,15 @@ eval' def@(MkDef env _) ((T.MkInclude elems) : _xs) = do
     )
     def
     paths
-eval' (MkDef env targets) ((T.MkRule rule) : xs) =
-  let newTargets = Map.union (evalRule env rule) targets
-   in eval' (MkDef env newTargets) xs
+eval'' (MkDef env _ targets) ((T.MkRule rule) : xs) =
+  let newTargets = evalRule env rule
+      initTarget = head $ Map.keys newTargets
+   in eval'' (MkDef env (Just initTarget) $ Map.union newTargets targets) xs
+
+-- TODO: Don't not reverse here (needed to find first target)
+eval' :: MkDef -> T.MkFile -> IO MkDef
+eval' mkDef mkFile = eval'' mkDef $ reverse mkFile
 
 -- TODO: Extract command-line environment here.
-eval :: T.MkFile -> IO (MkDef, Maybe String)
-eval mkFile = do
-  mkDef <- eval' (MkDef Map.empty Map.empty) mkFile
-  pure (mkDef, firstTarget mkDef mkFile)
-  where
-    firstTarget :: MkDef -> T.MkFile -> Maybe String
-    firstTarget _ [] = Nothing
-    firstTarget (MkDef env _) ((T.MkRule rule) : _) =
-      let (T.Rule targets _ _) = rule
-       in Just $ expand env $ head targets
-    firstTarget mkDef (_ : xs) = firstTarget mkDef xs
+eval :: T.MkFile -> IO MkDef
+eval = eval' (MkDef Map.empty Nothing Map.empty)

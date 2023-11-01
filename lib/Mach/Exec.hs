@@ -13,7 +13,7 @@ import System.Process (callCommand)
 data FileTarget = FileTarget FilePath TgtDef
 
 lookupTarget :: MkDef -> String -> Maybe FileTarget
-lookupTarget (MkDef _ targets) name =
+lookupTarget (MkDef _ _ targets) name =
   FileTarget name <$> Map.lookup name targets
 
 -- Lookup the given target. If neither a target nor a file

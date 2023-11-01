@@ -4,19 +4,20 @@ import Control.Exception (throwIO)
 import Control.Monad (void)
 import Data.Maybe (fromJust)
 import Mach.Error (MakeErr (..), TargetError (ZeroTargetsDefined))
-import Mach.Eval (MkDef, eval)
+import Mach.Eval (MkDef, eval, firstTarget)
 import Mach.Exec (lookupTarget, maybeBuild)
 import Mach.Parser (parseMkFile)
 import System.Environment (getArgs)
 import System.IO (hPutStrLn, stderr)
 
-makefile :: FilePath -> IO (MkDef, Maybe String)
+makefile :: FilePath -> IO MkDef
 makefile path = parseMkFile path >>= eval
 
 runMk :: FilePath -> IO ()
 runMk path = do
-  (mk, firstTarget) <- makefile path
-  case firstTarget of
+  mk <- makefile path
+  putStrLn $ "first: " ++ (Data.Maybe.fromJust $ firstTarget mk)
+  case firstTarget mk of
     Nothing -> throwIO $ TargetErr ZeroTargetsDefined
     Just tg -> void $ maybeBuild mk (fromJust $ lookupTarget mk tg)
   pure ()
