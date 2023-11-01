@@ -82,15 +82,18 @@ eval'' (MkDef env fstTgt targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
    in eval'' (MkDef newEnviron fstTgt targets) xs
-eval'' def@(MkDef env _ _) ((T.MkInclude elems) : _xs) = do
+eval'' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
   let paths = map (expand env) elems
-  foldM
-    ( \mkDef path -> do
-        mk <- parseMkFile path
-        eval' mkDef mk
-    )
-    def
-    paths
+  included <-
+    foldM
+      ( \mkDef path -> do
+          mk <- parseMkFile path
+          eval' mkDef mk
+      )
+      def
+      paths
+
+  eval'' included xs
 eval'' (MkDef env _ targets) ((T.MkRule rule) : xs) =
   let newTargets = evalRule env rule
       initTarget = head $ Map.keys newTargets
