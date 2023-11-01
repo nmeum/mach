@@ -22,7 +22,8 @@ library
         Mach.Exec,
         Mach.Eval,
         Mach.Parser,
-        Mach.Types
+        Mach.Types,
+        Mach.Error
     -- other-modules:
     -- other-extensions:
     build-depends:

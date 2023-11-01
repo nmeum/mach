@@ -1,7 +1,9 @@
 -- | Parser combinators for the POSIX @Makefile@ specifications.
 module Mach.Parser where
 
+import Control.Exception (throwIO)
 import Control.Monad (void)
+import Mach.Error (MakeErr (..))
 import Mach.Eval (MkDef (..), eval, expand)
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec (Parser, alphaNum, between, char, lookAhead, many, many1, newline, noneOf, oneOf, optionMaybe, parseFromFile, sepBy, sepBy1, string, try, (<|>))
@@ -142,9 +144,8 @@ mkFile =
 parseMkFile :: FilePath -> IO (T.MkFile)
 parseMkFile path = do
   res <- parseFromFile mkFile path
-  -- TODO: Custom exception here
   case res of
-    Left err -> fail $ show err
+    Left err -> throwIO $ ParserErr err
     Right mk -> pure mk
 
 makefile :: FilePath -> IO (MkDef, Maybe String)

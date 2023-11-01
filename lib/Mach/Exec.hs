@@ -1,8 +1,10 @@
 module Mach.Exec where
 
+import Control.Exception (throwIO)
 import Control.Monad (filterM)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
+import Mach.Error (MakeErr (..), TargetError (NoTargetOrFile))
 import Mach.Eval
 import System.Directory (doesPathExist, getModificationTime)
 import System.IO.Unsafe (unsafeInterleaveIO)
@@ -26,7 +28,7 @@ targetOrFile mk name =
       -- TODO: Throw a custom exception here
       if exists
         then pure Nothing
-        else fail $ "no target or file named " ++ show name
+        else throwIO $ TargetErr (NoTargetOrFile name)
 
 newerPreqs :: FileTarget -> IO [FilePath]
 newerPreqs (FileTarget name (Target preqs _)) = do
