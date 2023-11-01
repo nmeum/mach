@@ -2,7 +2,6 @@
 module Mach.Macro where
 
 import qualified Data.Map as Map
-import Data.Maybe (fromMaybe)
 import Data.Sequence (Seq)
 
 -- | Makefile environment consisting of macro definitions.
@@ -52,11 +51,3 @@ instance Show Flavor where
   show System = "!="
   show Cond = "?="
   show Append = "+="
-
-------------------------------------------------------------------------
-
--- Expand a given macro in the context of a given environment.
-expand :: Env -> Token -> String
-expand _ (Lit t) = t
-expand env (Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
-expand env (Seq s) = foldr (\x acc -> expand env x ++ acc) "" s

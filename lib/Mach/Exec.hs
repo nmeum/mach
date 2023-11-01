@@ -5,7 +5,6 @@ import Data.Foldable (toList)
 import qualified Data.Map as Map
 import Data.Maybe (catMaybes)
 import Mach.Eval
-import Mach.Macro (expand)
 import System.Directory (doesPathExist, getModificationTime)
 import System.IO.Unsafe (unsafeInterleaveIO)
 import System.Process (callCommand)
@@ -39,12 +38,12 @@ newerPreqs (FileTarget name (Target preqs _)) = do
 
 -- | Build a given target, including all dependencies that need to be rebuild.
 buildTarget :: MkDef -> FileTarget -> IO ()
-buildTarget mk@(MkDef env _) (FileTarget _ (Target preqs cmds)) = do
+buildTarget mk (FileTarget _ target@(Target preqs _)) = do
   depends <- mapM (targetOrFile mk) preqs
   mapM_ (maybeBuild mk) (catMaybes $ toList depends)
 
-  let expanded = fmap (expand env) cmds
-  mapM_ callCommand expanded
+  -- Actually build the target itself
+  mapM_ callCommand $ getCmds mk target
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name (Target _ _)) = do

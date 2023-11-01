@@ -1,9 +1,10 @@
-module Mach.Eval (TgtDef (..), MkDef (..), eval) where
+module Mach.Eval (TgtDef (..), MkDef (..), getCmds, eval) where
 
 import Data.Foldable (toList)
 import qualified Data.Map as Map
+import Data.Maybe (fromMaybe)
 import qualified Data.Sequence as Seq
-import Mach.Macro (Assign (..), Env, Flavor (..), Token (..), expand)
+import Mach.Macro (Assign (..), Env, Flavor (..), Token (..))
 import qualified Mach.Parser as P
 
 data TgtDef
@@ -18,6 +19,16 @@ data MkDef = MkDef Env (Map.Map String TgtDef)
   deriving (Show)
 
 ------------------------------------------------------------------------
+
+getCmds :: MkDef -> TgtDef -> [String]
+getCmds (MkDef env _) (Target _ cmds) =
+  toList $ fmap (expand env) cmds
+
+-- Expand a given macro in the context of a given environment.
+expand :: Env -> Token -> String
+expand _ (Lit t) = t
+expand env (Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
+expand env (Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
 
 evalAssign :: Env -> Assign -> (String, String)
 evalAssign env (Assign name ty val) =
