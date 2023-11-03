@@ -92,8 +92,8 @@ assign = do
 subExpand :: Parser T.Token
 subExpand =
   char '$'
-    >> ( between (char '(') (char ')') inner
-           <|> between (char '{') (char '}') inner
+    >> ( between (char '(') (char ')') (try inner)
+           <|> between (char '{') (char '}') (try inner)
        )
   where
     inner :: Parser T.Token
@@ -102,7 +102,7 @@ subExpand =
       _ <- char ':'
       subst1 <- many1 $ noneOf "="
       _ <- char '='
-      subst2 <- many $ noneOf "}"
+      subst2 <- many $ noneOf "})"
       pure $ T.ExpSub string1 subst1 subst2
 
 -- | Parse a macro expanison.
