@@ -36,6 +36,7 @@ To-Do.
 * [A Linux port of NetBSD make][bmake web]
 * [The make implementation provided by the GNU project][gnu make]
 * [remake, an enhanced version of GNU make][remake github]
+* [pdpmake, a implementation of POSIX make written from scratch in C][pdpmake web]
 
 ## License
 
@@ -48,3 +49,4 @@ This work is licensed under [CC BY-NC-SA 4.0][cc license].
 [bmake web]: http://www.crufty.net/help/sjg/bmake.html
 [gnu make]: https://www.gnu.org/software/make
 [remake github]: https://github.com/rocky/remake
+[pdpmake web]: https://frippery.org/make/
