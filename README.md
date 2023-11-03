@@ -6,6 +6,20 @@ An implementation of POSIX `make(1)` as defined in P1003.1™-202x/D3.
 
 To-Do.
 
+## Roadmap
+
+* [ ] Support for command-line options mandated by POSIX
+* [ ] Support for inference rules
+* [ ] Support for command prefixes (`-`, `@`, `+`)
+* [ ] Proper support for escaped newlines in commands and assignments
+* [ ] Support for macro assignment operators other than `:=`
+* [ ] Support for macro expansions of the form `$(string1:subst1=[subst2])`
+* [ ] Support for special targets (e.g. `.PHONY`)
+* [ ] Support for internal macros (e.g. `$@`, `$%`, …)
+* [ ] Support for specifying assignments on the command-line
+* [ ] Support for default rules (e.g. for C compilation)
+* [ ] Support for environment variables (e.g. `MAKEFLAGS`)
+
 ## Installation
 
 To-Do.
