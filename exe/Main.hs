@@ -16,7 +16,6 @@ makefile path = parseMkFile path >>= eval
 runMk :: FilePath -> IO ()
 runMk path = do
   mk <- makefile path
-  putStrLn $ "first: " ++ (Data.Maybe.fromJust $ firstTarget mk)
   case firstTarget mk of
     Nothing -> throwIO $ TargetErr ZeroTargetsDefined
     Just tg -> void $ maybeBuild mk (fromJust $ lookupTarget mk tg)
