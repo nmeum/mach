@@ -10,6 +10,7 @@ module Mach.Eval
   )
 where
 
+import Control.Applicative ((<|>))
 import Control.Monad (foldM)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -76,13 +77,13 @@ evalRule env (T.Rule tgts preqs cmds) =
   where
     exLst = map (expand env)
 
-eval'' :: MkDef -> T.MkFile -> IO MkDef
-eval'' def [] = pure def
-eval'' (MkDef env fstTgt targets) ((T.MkAssign assign) : xs) =
+eval' :: MkDef -> T.MkFile -> IO MkDef
+eval' def [] = pure def
+eval' (MkDef env fstTgt targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
-   in eval'' (MkDef newEnviron fstTgt targets) xs
-eval'' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
+   in eval' (MkDef newEnviron fstTgt targets) xs
+eval' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
   let paths = map (expand env) elems
   included <-
     foldM
@@ -93,15 +94,15 @@ eval'' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
       def
       paths
 
-  eval'' included xs
-eval'' (MkDef env _ targets) ((T.MkRule rule) : xs) =
+  eval' included xs
+eval' (MkDef env fstTarget targets) ((T.MkRule rule) : xs) =
   let newTargets = evalRule env rule
       initTarget = head $ Map.keys newTargets
-   in eval'' (MkDef env (Just initTarget) $ Map.union newTargets targets) xs
-
--- TODO: Don't not reverse here (needed to find first target)
-eval' :: MkDef -> T.MkFile -> IO MkDef
-eval' mkDef mkFile = eval'' mkDef $ reverse mkFile
+   in eval'
+        ( MkDef env (fstTarget <|> Just initTarget) $
+            Map.union newTargets targets
+        )
+        xs
 
 -- TODO: Extract command-line environment here.
 eval :: T.MkFile -> IO MkDef
