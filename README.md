@@ -2,9 +2,9 @@
 
 An implementation of POSIX `make(1)` as defined in P1003.1™-202x/D3.
 
-## About
+## Status
 
-To-Do.
+Proof of concept, currently largely untested, buggy, and incomplete.
 
 ## Roadmap
 
