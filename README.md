@@ -1,6 +1,6 @@
 # mach
 
-An implementation of POSIX `make(1)` as defined in P1003.1™-202x/D3.
+A work-in-progress implementation of `make(1)`, aims to be compatible with P1003.1™-202x/D3 at some point.
 
 ## Status
 
