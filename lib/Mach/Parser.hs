@@ -86,6 +86,25 @@ assign = do
   flavor <- blanks >> assignOp <* blanks
   T.Assign mident flavor <$> tokens
 
+-- | Parse a macro expansion of the form $(string1:subst1=[subst2]).
+--
+-- TODO: Integrate into macroExpand function.
+subExpand :: Parser T.Token
+subExpand =
+  char '$'
+    >> ( between (char '(') (char ')') inner
+           <|> between (char '{') (char '}') inner
+       )
+  where
+    inner :: Parser T.Token
+    inner = do
+      string1 <- tokenLit $ noneOf "#\n\\$:})"
+      _ <- char ':'
+      subst1 <- many1 $ noneOf "="
+      _ <- char '='
+      subst2 <- many $ noneOf "}"
+      pure $ T.ExpSub string1 subst1 subst2
+
 -- | Parse a macro expanison.
 macroExpand :: Parser T.Token
 macroExpand = T.Exp <$> macroExpand'
@@ -111,8 +130,8 @@ token = tokenLit $ noneOf "#\n\\$"
 -- | Parse a token but use a custom parser for parsing of literal tokens.
 tokenLit :: Parser Char -> Parser T.Token
 tokenLit literal =
-  -- TODO: Skip comments in lexer
-  try macroExpand
+  try subExpand
+    <|> try macroExpand
     <|> escDollar
     <|> escNewline
     <|> litToken

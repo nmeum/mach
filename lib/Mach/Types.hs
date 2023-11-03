@@ -12,6 +12,8 @@ data Token
     Lit String
   | -- | Macro expansion
     Exp Token
+  | -- | Macro expansion with suffix replacement
+    ExpSub Token String String
   | -- | Sequence text
     Seq [Token]
   deriving (Show, Eq)

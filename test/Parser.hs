@@ -40,7 +40,10 @@ assignTests =
          in parse "a = foo\\\nbar" @?= assign "a" T.Delayed rvalue,
       testCase "Invalid macro expansion" $
         assertBool "closing brackets are not valid macro names" $
-          parseErr "foo = ${}}"
+          parseErr "foo = ${}}",
+      testCase "Macro expansion with substition" $
+        let rvalue = T.Seq [T.ExpSub (T.Lit "string1") "subst1" "subst2"]
+         in parse "a = ${string1:subst1=subst2}" @?= assign "a" T.Delayed rvalue
     ]
   where
     parse :: String -> Either Parsec.ParseError T.Assign

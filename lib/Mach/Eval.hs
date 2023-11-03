@@ -12,6 +12,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Monad (foldM)
+import Data.List (isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
@@ -57,6 +58,18 @@ expand :: T.Env -> T.Token -> String
 expand _ (T.Lit t) = t
 expand env (T.Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
 expand env (T.Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
+expand env (T.ExpSub t s1 s2) =
+  foldl
+    ( \acc word ->
+        subWord word s1 s2 ++ acc
+    )
+    ""
+    (words $ expand env t)
+  where
+    subWord :: String -> String -> String -> String
+    subWord w s r
+      | s `isSuffixOf` w = take (length w - length s) w ++ r
+      | otherwise = w
 
 ------------------------------------------------------------------------
 
