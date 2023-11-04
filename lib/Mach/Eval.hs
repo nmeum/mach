@@ -12,7 +12,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Monad (foldM)
-import Data.List (isSuffixOf)
+import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
@@ -32,6 +32,8 @@ data MkDef
       T.Env
       -- | First "normal" target defined in the Makefile.
       (Maybe String)
+      -- | Inference rules defined in this Makefile.
+      (Map.Map String TgtDef)
       -- | Targets defined in this Makefile.
       (Map.Map String TgtDef)
   deriving (Show)
@@ -41,16 +43,35 @@ data MkDef
 -- | Obtain the first target that is not a special target or an
 -- inference rule. 'Nothing' if the Makefile defines no targets.
 firstTarget :: MkDef -> Maybe String
-firstTarget (MkDef _ fstTarget _) = fstTarget
+firstTarget (MkDef _ fstTarget _ _) = fstTarget
 
+-- | Return all suffixes.
+--
+-- TODO: Use .SUFFIXES for this purpose.
+suffixes :: MkDef -> [String]
+suffixes (MkDef _ _ infs _) = Map.keys infs
+
+-- | Lookup either a target or inference rule.
 lookupRule :: MkDef -> String -> Maybe TgtDef
-lookupRule (MkDef _ _ targets) = flip Map.lookup targets
+lookupRule mk@(MkDef _ _ infs targets) name =
+  Map.lookup name targets
+    <|> suffixLookup (suffixes mk) infs
+  where
+    suffixLookup :: [String] -> (Map.Map String TgtDef) -> Maybe TgtDef
+    suffixLookup [] _ = Nothing
+    suffixLookup (ruleName : xs) infRules
+      | (getSuffix ruleName) `isSuffixOf` name = Map.lookup ruleName infRules
+      | otherwise = suffixLookup xs infRules
+
+    -- For a string of the form `.s2.s1` return `.s1`.
+    getSuffix :: String -> String
+    getSuffix str = drop (last $ elemIndices '.' str) str
 
 getPreqs :: TgtDef -> [String]
 getPreqs (Target preqs _) = preqs
 
 getCmds :: MkDef -> TgtDef -> [String]
-getCmds (MkDef env _ _) (Target _ cmds) =
+getCmds (MkDef env _ _ _) (Target _ cmds) =
   fmap (expand env) cmds
 
 -- Expand a given macro in the context of a given environment.
@@ -83,8 +104,8 @@ evalAssign env (T.Assign name ty val) =
     T.Cond -> error "unsupported"
     T.Append -> error "unsupported"
 
-evalRule :: T.Env -> T.Rule -> Map.Map String TgtDef
-evalRule env (T.Rule tgts preqs cmds) =
+evalTgtRule :: T.Env -> T.TgtRule -> Map.Map String TgtDef
+evalTgtRule env (T.TgtRule tgts preqs cmds) =
   let def = Target (exLst preqs) cmds
    in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
@@ -92,11 +113,11 @@ evalRule env (T.Rule tgts preqs cmds) =
 
 eval' :: MkDef -> T.MkFile -> IO MkDef
 eval' def [] = pure def
-eval' (MkDef env fstTgt targets) ((T.MkAssign assign) : xs) =
+eval' (MkDef env fstTgt infs targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
-   in eval' (MkDef newEnviron fstTgt targets) xs
-eval' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
+   in eval' (MkDef newEnviron fstTgt infs targets) xs
+eval' def@(MkDef env _ _ _) ((T.MkInclude elems) : xs) = do
   let paths = map (expand env) elems
   included <-
     foldM
@@ -108,15 +129,21 @@ eval' def@(MkDef env _ _) ((T.MkInclude elems) : xs) = do
       paths
 
   eval' included xs
-eval' (MkDef env fstTarget targets) ((T.MkRule rule) : xs) =
-  let newTargets = evalRule env rule
+eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
+  let def = Target [] cmds
+   in eval' (MkDef env fstTgt (Map.insert target def infs) targets) xs
+eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
+  let newTargets = evalTgtRule env rule
       initTarget = head $ Map.keys newTargets
    in eval'
-        ( MkDef env (fstTarget <|> Just initTarget) $
-            Map.union newTargets targets
+        ( MkDef
+            env
+            (fstTgt <|> Just initTarget)
+            infs
+            $ Map.union newTargets targets
         )
         xs
 
 -- TODO: Extract command-line environment here.
 eval :: T.MkFile -> IO MkDef
-eval = eval' (MkDef Map.empty Nothing Map.empty)
+eval = eval' (MkDef Map.empty Nothing Map.empty Map.empty)

@@ -145,8 +145,24 @@ tokenLit lit =
 tokens :: Parser T.Token
 tokens = T.Seq <$> many token
 
+-- | Parse multiple lines of commands prefixed by a tab character.
+commands :: Parser [T.Token]
+commands = many (char '\t' >> (tokens <* newline))
+
+-- | Inference rule.
+infRule :: Parser T.InfRule
+infRule = do
+  target <- char '.' >> (:) '.' <$> many1 targetChar
+  cmds <-
+    char ':'
+      >> ( (const [] <$> (many1 blank >> char ';'))
+             <|> (many blank >> newline >> commands)
+         )
+
+  pure $ T.InfRule target cmds
+
 -- | Target rule which defines how targets are build.
-targetRule :: Parser T.Rule
+targetRule :: Parser T.TgtRule
 targetRule = do
   targets <- sepBy1 (tokenLit targetChar) blank
   _ <- char ':' >> (blank <|> lookAhead newline)
@@ -154,8 +170,8 @@ targetRule = do
   command <- optionMaybe (char ';' >> tokens)
   _ <- newline
 
-  cmds <- many (char '\t' >> (tokens <* newline))
-  pure $ T.Rule targets prereqs (maybe cmds (: cmds) command)
+  cmds <- commands
+  pure $ T.TgtRule targets prereqs (maybe cmds (: cmds) command)
 
 include :: Parser [T.Token]
 include = do
@@ -181,7 +197,8 @@ mkFile :: Parser T.MkFile
 mkFile =
   many
     ( try (T.MkAssign <$> lexeme assign)
-        <|> try (T.MkRule <$> lexeme targetRule)
+        <|> try (T.MkInfRule <$> lexeme infRule)
+        <|> try (T.MkTgtRule <$> lexeme targetRule)
         <|> try (T.MkInclude <$> lexeme include)
     )
     -- Ensure that we parse the whole Makefile

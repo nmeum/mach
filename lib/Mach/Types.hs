@@ -58,9 +58,19 @@ instance Show Flavor where
 -- | Makefile specification, a sequence of statements.
 type MkFile = [MkStat]
 
--- | Makefile rule which relates targets to commands for their creation.
-data Rule
-  = Rule
+-- | Inference rule.
+data InfRule
+  = InfRule
+      -- | Target, always begins with a period
+      String
+      -- | Commands (might be empty)
+      [Token]
+  deriving
+    (Show, Eq)
+
+-- | Target rule which relates targets to commands for their creation.
+data TgtRule
+  = TgtRule
       -- | Targets (non-empty)
       [Token]
       -- | Prerequisites
@@ -75,5 +85,6 @@ data Rule
 data MkStat
   = MkAssign Assign
   | MkInclude [Token]
-  | MkRule Rule
+  | MkTgtRule TgtRule
+  | MkInfRule InfRule
   deriving (Show, Eq)

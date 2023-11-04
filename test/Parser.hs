@@ -75,11 +75,11 @@ ruleTests =
         parse "foo:\n\techo ${BAR}\n" @?= rule [T.Lit "foo"] [] [T.Seq [T.Lit "echo ", T.Exp (T.Lit "BAR")]]
     ]
   where
-    parse :: String -> Either Parsec.ParseError T.Rule
+    parse :: String -> Either Parsec.ParseError T.TgtRule
     parse = Parsec.parse P.targetRule ""
 
-    rule :: [T.Token] -> [T.Token] -> [T.Token] -> Either Parsec.ParseError T.Rule
-    rule t p c = Right $ T.Rule t p c
+    rule :: [T.Token] -> [T.Token] -> [T.Token] -> Either Parsec.ParseError T.TgtRule
+    rule t p c = Right $ T.TgtRule t p c
 
 includeTests :: TestTree
 includeTests =
@@ -109,8 +109,8 @@ mkTests =
         let assign = T.Assign "foo" T.Delayed (T.Seq [T.Lit "bar"])
          in parse "foo = bar\n" @?= Right [T.MkAssign assign],
       testCase "rule" $
-        let rule = T.Rule [T.Lit "foo"] [] [T.Seq [T.Lit "bar"]]
-         in parse "foo:\n\tbar\n" @?= Right [T.MkRule rule],
+        let rule = T.TgtRule [T.Lit "foo"] [] [T.Seq [T.Lit "bar"]]
+         in parse "foo:\n\tbar\n" @?= Right [T.MkTgtRule rule],
       testCase "include" $
         let paths = [T.Lit "foo", T.Lit "bar"]
          in parse "include foo bar\n" @?= Right [T.MkInclude paths]

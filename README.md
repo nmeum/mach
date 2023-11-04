@@ -10,6 +10,11 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 
 * [ ] Support for command-line options mandated by POSIX
 * [ ] Support for inference rules
+    * [x] Parser support
+    * [x] Handling of ".s2.s1" inference rules
+    * [ ] Respect and use `.SUFFIXES"
+    * [ ] Handling of ".s1" inference rules
+    * [ ] Tests
 * [ ] Support for command prefixes (`-`, `@`, `+`)
 * [ ] Proper support for escaped newlines in commands and assignments
 * [ ] Support for macro assignment operators other than `:=`
