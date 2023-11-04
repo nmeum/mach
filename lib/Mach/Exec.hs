@@ -24,7 +24,6 @@ targetOrFile mk name =
     Just x -> pure $ Just x
     Nothing -> do
       exists <- doesPathExist name
-      -- TODO: Throw a custom exception here
       if exists
         then pure Nothing
         else throwIO $ TargetErr (NoTargetOrFile name)
