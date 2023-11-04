@@ -24,6 +24,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for specifying assignments on the command-line
 * [ ] Support for default rules (e.g. for C compilation)
 * [ ] Support for environment variables (e.g. `MAKEFLAGS`)
+* [ ] Support for libraries (prerequisites with parentheses)
 
 ## Installation
 
