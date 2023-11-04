@@ -86,42 +86,33 @@ assign = do
   flavor <- blanks >> assignOp <* blanks
   T.Assign mident flavor <$> tokens
 
--- | Parse a macro expansion of the form $(string1:subst1=[subst2]).
---
--- TODO: Integrate into macroExpand function.
-subExpand :: Parser T.Token
-subExpand =
-  char '$'
-    >> ( between (char '(') (char ')') (try inner)
-           <|> between (char '{') (char '}') (try inner)
-       )
+-- | Parse a macro expanison.
+macroExpand :: Parser T.Token
+macroExpand =
+  let inner = try subExpand <|> simpleExpand
+   in char '$'
+        >> ( between (char '(') (char ')') inner
+               <|> between (char '{') (char '}') inner
+           )
   where
-    inner :: Parser T.Token
-    inner = do
+    -- Parse a macro expansion of the form $(string1).
+    simpleExpand :: Parser T.Token
+    simpleExpand =
+      T.Exp
+        <$> ( macroExpand
+                <|> macroExpand
+                <|> tokenLit (noneOf "#\n\\$})")
+            )
+
+    -- Parse a macro expansion of the form $(string1:subst1=[subst2]).
+    subExpand :: Parser T.Token
+    subExpand = do
       string1 <- tokenLit $ noneOf "#\n\\$:})"
       _ <- char ':'
       subst1 <- many1 $ noneOf "="
       _ <- char '='
       subst2 <- many $ noneOf "})"
       pure $ T.ExpSub string1 subst1 subst2
-
--- | Parse a macro expanison.
-macroExpand :: Parser T.Token
-macroExpand = T.Exp <$> macroExpand'
-  where
-    macroExpand' :: Parser T.Token
-    macroExpand' =
-      char '$'
-        >> ( between (char '(') (char ')') inner
-               <|> between (char '{') (char '}') inner
-           )
-
-    -- Within a macro expansion, we only look for nested macro
-    -- expansions, e.g. `${${BAR}}` or macro names. Using 'token' here
-    -- is challenging as the closing brackets are also valid literals,
-    -- hence would consume the closing bracket as a literal.
-    inner :: Parser T.Token
-    inner = macroExpand <|> (T.Lit <$> macroName)
 
 -- | Parse a single token, i.e. an escaped newline, escaped @$@ character, macro expansion, or literal.
 token :: Parser T.Token
@@ -130,8 +121,7 @@ token = tokenLit $ noneOf "#\n\\$"
 -- | Parse a token but use a custom parser for parsing of literal tokens.
 tokenLit :: Parser Char -> Parser T.Token
 tokenLit literal =
-  try subExpand
-    <|> try macroExpand
+  try macroExpand
     <|> escDollar
     <|> escNewline
     <|> litToken
@@ -194,7 +184,7 @@ mkFile =
 
 ------------------------------------------------------------------------
 
-parseMkFile :: FilePath -> IO (T.MkFile)
+parseMkFile :: FilePath -> IO T.MkFile
 parseMkFile path = do
   res <- parseFromFile mkFile path
   case res of

@@ -13,7 +13,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for command prefixes (`-`, `@`, `+`)
 * [ ] Proper support for escaped newlines in commands and assignments
 * [ ] Support for macro assignment operators other than `:=`
-* [ ] Support for macro expansions of the form `$(string1:subst1=[subst2])`
+* [x] Support for macro expansions of the form `$(string1:subst1=[subst2])`
 * [ ] Support for special targets (e.g. `.PHONY`)
 * [ ] Support for internal macros (e.g. `$@`, `$%`, …)
 * [ ] Support for specifying assignments on the command-line
