@@ -101,26 +101,31 @@ macroExpand =
       T.Exp
         <$> ( macroExpand
                 <|> macroExpand
-                <|> tokenLit (noneOf "#\n\\$})")
+                <|> tokenLit (literal "})")
             )
 
     -- Parse a macro expansion of the form $(string1:subst1=[subst2]).
     subExpand :: Parser T.Token
     subExpand = do
-      string1 <- tokenLit $ noneOf "#\n\\$:})"
+      string1 <- tokenLit $ literal ":})"
       _ <- char ':'
       subst1 <- many1 $ noneOf "="
       _ <- char '='
       subst2 <- many $ noneOf "})"
       pure $ T.ExpSub string1 subst1 subst2
 
+-- | Parse a valid character for a literal.
+-- Characters not valid in the current context can be passed as well.
+literal :: [Char] -> Parser Char
+literal notValid = noneOf $ notValid ++ "#\n\\$"
+
 -- | Parse a single token, i.e. an escaped newline, escaped @$@ character, macro expansion, or literal.
 token :: Parser T.Token
-token = tokenLit $ noneOf "#\n\\$"
+token = tokenLit $ literal []
 
 -- | Parse a token but use a custom parser for parsing of literal tokens.
 tokenLit :: Parser Char -> Parser T.Token
-tokenLit literal =
+tokenLit lit =
   try macroExpand
     <|> escDollar
     <|> escNewline
@@ -134,7 +139,7 @@ tokenLit literal =
 
     -- TODO: In noneOf, check that \ is followed by a newline.
     litToken :: Parser T.Token
-    litToken = T.Lit <$> many1 literal
+    litToken = T.Lit <$> many1 lit
 
 -- | Parse a sequence of zero or more 'T.Token'.
 tokens :: Parser T.Token
