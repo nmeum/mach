@@ -161,7 +161,7 @@ include :: Parser [T.Token]
 include = do
   _ <- optionMaybe (char '-')
   _ <- string "include" >> blanks
-  paths <- sepBy1 (tokenLit $ noneOf " #\n\\$") blank
+  paths <- sepBy1 (tokenLit $ literal " ") blank
   _ <- maybeBlanks
   pure paths
 
