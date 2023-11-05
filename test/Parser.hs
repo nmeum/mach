@@ -42,7 +42,7 @@ assignTests =
         assertBool "closing brackets are not valid macro names" $
           parseErr "foo = ${}}",
       testCase "Macro expansion with substitution" $
-        let rvalue = T.Seq [T.ExpSub (T.Lit "string1") "subst1" "subst2"]
+        let rvalue = T.Seq [T.ExpSub (T.Exp $ T.Lit "string1") "subst1" "subst2"]
          in parse "a = ${string1:subst1=subst2}" @?= assign "a" T.Delayed rvalue,
       testCase "Single character macro expansion" $
         let rvalue = T.Seq [T.Exp (T.Lit "<")] in parse "_ ?= $<" @?= assign "_" T.Cond rvalue

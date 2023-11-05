@@ -113,7 +113,8 @@ macroExpand' =
     -- Parse a macro expansion of the form $(string1:subst1=[subst2]).
     subExpand :: Parser T.Token
     subExpand = do
-      string1 <- tokenLit $ literal ":})"
+      -- TODO: Support nested macro expansion in string1
+      string1 <- T.Exp <$> (tokenLit $ literal ":})")
       _ <- char ':'
       subst1 <- many1 $ noneOf "="
       _ <- char '='
