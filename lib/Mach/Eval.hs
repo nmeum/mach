@@ -90,15 +90,13 @@ expand _ (T.Lit t) = t
 expand env (T.Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
 expand env (T.Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
 expand env (T.ExpSub t s1 s2) =
-  foldl
-    ( \acc word ->
-        subWord word s1 s2 ++ acc
-    )
-    ""
-    (words $ expand env t)
+  intercalate " " $
+    map
+      (subWord s1 s2)
+      (words $ expand env t)
   where
     subWord :: String -> String -> String -> String
-    subWord w s r
+    subWord s r w
       | s `isSuffixOf` w = take (length w - length s) w ++ r
       | otherwise = w
 
@@ -119,7 +117,7 @@ evalTgtRule env (T.TgtRule tgts preqs cmds) =
   let def = Target (exLst preqs) cmds
    in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
-    exLst = map (expand env)
+    exLst = concatMap (words . expand env)
 
 eval' :: MkDef -> T.MkFile -> IO MkDef
 eval' def [] = pure def
