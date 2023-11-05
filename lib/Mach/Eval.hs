@@ -12,12 +12,15 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Monad (foldM)
-import Data.List (elemIndices, isSuffixOf)
+import Data.List (elemIndices, intercalate, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 
+-- TODO: Consider expanding this, also tracking the name and the
+-- type of the rule here (e.g. for inference rules). Useful for
+-- the implementation of internal macros.
 data TgtDef
   = Target
       -- | Prerequisites (expanded)
@@ -70,9 +73,16 @@ lookupRule mk@(MkDef _ _ infs targets) name =
 getPreqs :: TgtDef -> [String]
 getPreqs (Target preqs _) = preqs
 
-getCmds :: MkDef -> TgtDef -> [String]
-getCmds (MkDef env _ _ _) (Target _ cmds) =
-  fmap (expand env) cmds
+getCmds :: MkDef -> String -> TgtDef -> [String]
+getCmds (MkDef env _ _ _) name (Target preqs cmds) =
+  fmap (expand $ Map.union internalMacros env) cmds
+  where
+    internalMacros :: T.Env
+    internalMacros =
+      Map.fromList
+        [ ("^", intercalate " " preqs),
+          ("<", name) -- TODO: Only support this for inference rules
+        ]
 
 -- Expand a given macro in the context of a given environment.
 expand :: T.Env -> T.Token -> String

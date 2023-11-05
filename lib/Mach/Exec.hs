@@ -37,12 +37,12 @@ newerPreqs (FileTarget name target) = do
 
 -- | Build a given target, including all dependencies that need to be rebuild.
 buildTarget :: MkDef -> FileTarget -> IO ()
-buildTarget mk (FileTarget _ target) = do
+buildTarget mk (FileTarget name target) = do
   depends <- mapM (targetOrFile mk) $ getPreqs target
   mapM_ (maybeBuild mk) (catMaybes depends)
 
   -- Actually build the target itself
-  mapM_ callCommand $ getCmds mk target
+  mapM_ callCommand $ getCmds mk name target
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name _) = do
