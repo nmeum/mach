@@ -86,14 +86,20 @@ assign = do
   flavor <- blanks >> assignOp <* blanks
   T.Assign mident flavor <$> tokens
 
--- | Parse a macro expanison.
+-- | Parse a macro expansion.
 macroExpand :: Parser T.Token
-macroExpand =
+macroExpand = char '$' >> (singleChar <|> macroExpand')
+  where
+    singleChar :: Parser T.Token
+    singleChar = T.Exp <$> ((\x -> T.Lit [x]) <$> literal "{}()")
+
+-- | Parse a macro expansion enclosed in parentheses.
+macroExpand' :: Parser T.Token
+macroExpand' =
   let inner = try subExpand <|> simpleExpand
-   in char '$'
-        >> ( between (char '(') (char ')') inner
-               <|> between (char '{') (char '}') inner
-           )
+   in ( between (char '(') (char ')') inner
+          <|> between (char '{') (char '}') inner
+      )
   where
     -- Parse a macro expansion of the form $(string1).
     simpleExpand :: Parser T.Token
