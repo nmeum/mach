@@ -37,7 +37,7 @@ If this GHC version is installed, mach can be installed by cloning the repositor
 
 * [The original Make paper by Stuart I. Feldman][feldman make]
 * [Plan 9's rewrite of make, called mk][plan9 mk]
-* [A re-implementation of Plan mk in Haskell][hmk github]
+* [A re-implementation of Plan 9 mk in Haskell][hmk github]
 * [A Linux port of NetBSD make][bmake web]
 * [The make implementation provided by the GNU project][gnu make]
 * [remake, an enhanced version of GNU make][remake github]
