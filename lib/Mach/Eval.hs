@@ -62,13 +62,22 @@ lookupRule mk@(MkDef _ _ infs targets) name =
   where
     suffixLookup :: [String] -> (Map.Map String TgtDef) -> Maybe TgtDef
     suffixLookup [] _ = Nothing
-    suffixLookup (ruleName : xs) infRules
-      | (getSuffix ruleName) `isSuffixOf` name = Map.lookup ruleName infRules
-      | otherwise = suffixLookup xs infRules
+    suffixLookup (ruleName : xs) infRules =
+      let (src, tgt) = getSuffixes ruleName
+       in if tgt `isSuffixOf` name
+            then
+              (\(Target _ cmds) -> Target [stripSuffix name ++ src] cmds)
+                <$> Map.lookup ruleName infRules
+            else suffixLookup xs infRules
 
-    -- For a string of the form `.s2.s1` return `.s1`.
-    getSuffix :: String -> String
-    getSuffix str = drop (last $ elemIndices '.' str) str
+    stripSuffix :: String -> String
+    stripSuffix = fst . getSuffixes
+
+    -- For a string of the form `.s2.s1` return `(".s2", ".s1")`.
+    --
+    -- TODO: Ensure that the string only contains two period characters.
+    getSuffixes :: String -> (String, String)
+    getSuffixes str = splitAt (last $ elemIndices '.' str) str
 
 getPreqs :: TgtDef -> [String]
 getPreqs (Target preqs _) = preqs
@@ -81,7 +90,7 @@ getCmds (MkDef env _ _ _) name (Target preqs cmds) =
     internalMacros =
       Map.fromList
         [ ("^", intercalate " " preqs),
-          ("<", name) -- TODO: Only support this for inference rules
+          ("@", name)
         ]
 
 -- Expand a given macro in the context of a given environment.
