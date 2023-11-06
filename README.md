@@ -12,13 +12,18 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for inference rules
     * [x] Parser support
     * [x] Handling of ".s2.s1" inference rules
-    * [ ] Respect and use `.SUFFIXES"
+    * [ ] Respect and use `.SUFFIXES" (see *special targets* below)
     * [ ] Handling of ".s1" inference rules
     * [ ] Tests
-* [ ] Support for command prefixes (`-`, `@`, `+`)
+* [x] Support for command prefixes (`-`, `@`, `+`)
+    * [x] Preliminary support for `@` and `-`
+    * [ ] Support for `-`
+    * [ ] Support for `.SILENT` / `.IGNORE` / `…` (see *special targets* below)
+    * [ ] Tests
 * [ ] Proper support for escaped newlines in commands and assignments
 * [ ] Support for macro assignment operators other than `:=`
 * [x] Support for macro expansions of the form `$(string1:subst1=[subst2])`
+    * [ ] Support for nested expansions in `string1`
 * [ ] Support for special targets (e.g. `.PHONY`)
 * [ ] Support for internal macros (e.g. `$@`, `$%`, …)
 * [ ] Support for specifying assignments on the command-line

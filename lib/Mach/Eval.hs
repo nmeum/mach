@@ -6,17 +6,22 @@ module Mach.Eval
     firstTarget,
     lookupRule,
     getCmds,
+    runCmds,
     eval,
   )
 where
 
 import Control.Applicative ((<|>))
-import Control.Monad (foldM)
+import Control.Monad (foldM, void)
 import Data.List (elemIndices, intercalate, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
+import System.Process (callCommand, createProcess, shell, waitForProcess)
+
+-- Expanded commands of a target.
+newtype Cmds = Cmds [String]
 
 -- TODO: Consider expanding this, also tracking the name and the
 -- type of the rule here (e.g. for inference rules). Useful for
@@ -82,9 +87,9 @@ lookupRule mk@(MkDef _ _ infs targets) name =
 getPreqs :: TgtDef -> [String]
 getPreqs (Target preqs _) = preqs
 
-getCmds :: MkDef -> String -> TgtDef -> [String]
+getCmds :: MkDef -> String -> TgtDef -> Cmds
 getCmds (MkDef env _ _ _) name (Target preqs cmds) =
-  fmap (expand $ Map.union internalMacros env) cmds
+  Cmds $ fmap (expand $ Map.union internalMacros env) cmds
   where
     internalMacros :: T.Env
     internalMacros =
@@ -92,6 +97,17 @@ getCmds (MkDef env _ _ _) name (Target preqs cmds) =
         [ ("^", intercalate " " preqs),
           ("@", name)
         ]
+
+runCmds :: Cmds -> IO ()
+runCmds (Cmds cmds) = mapM_ runCmd cmds
+  where
+    -- TODO: Parse prefixes in Parser
+    runCmd :: String -> IO ()
+    runCmd ('-' : cmd) = do
+      (_, _, _, p) <- createProcess (shell cmd)
+      void $ waitForProcess p
+    runCmd ('@' : cmd) = callCommand cmd
+    runCmd cmd = putStrLn cmd >> callCommand cmd
 
 -- Expand a given macro in the context of a given environment.
 expand :: T.Env -> T.Token -> String

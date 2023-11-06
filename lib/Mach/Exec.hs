@@ -7,7 +7,6 @@ import Mach.Error (MakeErr (..), TargetError (NoTargetOrFile))
 import Mach.Eval
 import System.Directory (doesPathExist, getModificationTime)
 import System.IO.Unsafe (unsafeInterleaveIO)
-import System.Process (callCommand)
 
 data FileTarget = FileTarget FilePath TgtDef
 
@@ -42,7 +41,7 @@ buildTarget mk (FileTarget name target) = do
   mapM_ (maybeBuild mk) (catMaybes depends)
 
   -- Actually build the target itself
-  mapM_ callCommand $ getCmds mk name target
+  runCmds $ getCmds mk name target
 
 maybeBuild :: MkDef -> FileTarget -> IO Bool
 maybeBuild mk target@(FileTarget name _) = do
