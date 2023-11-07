@@ -13,7 +13,7 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Monad (foldM, void)
-import Data.List (elemIndices, intercalate, isSuffixOf)
+import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
@@ -65,7 +65,7 @@ lookupRule mk@(MkDef _ _ infs targets) name =
   Map.lookup name targets
     <|> suffixLookup (suffixes mk) infs
   where
-    suffixLookup :: [String] -> (Map.Map String TgtDef) -> Maybe TgtDef
+    suffixLookup :: [String] -> Map.Map String TgtDef -> Maybe TgtDef
     suffixLookup [] _ = Nothing
     suffixLookup (ruleName : xs) infRules =
       let (src, tgt) = getSuffixes ruleName
@@ -94,7 +94,7 @@ getCmds (MkDef env _ _ _) name (Target preqs cmds) =
     internalMacros :: T.Env
     internalMacros =
       Map.fromList
-        [ ("^", intercalate " " preqs),
+        [ ("^", unwords preqs),
           ("@", name)
         ]
 
@@ -115,7 +115,7 @@ expand _ (T.Lit t) = t
 expand env (T.Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
 expand env (T.Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
 expand env (T.ExpSub t s1 s2) =
-  intercalate " " $
+  unwords $
     map
       (subWord s1 s2)
       (words $ expand env t)
