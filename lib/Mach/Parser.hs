@@ -188,28 +188,31 @@ include = do
   _ <- maybeBlanks
   pure paths
 
-lexeme :: Parser a -> Parser a
-lexeme p = do
-  r <- p
+comment :: Parser String
+comment = char '#' >> manyTill anyChar newline
+
+skipNoCode :: Parser ()
+skipNoCode = do
   _ <- many blank
   _ <- many newline
   _ <- skipMany (try comment >> many blank >> many newline)
-  return r
-  where
-    comment :: Parser String
-    comment = char '#' >> manyTill anyChar newline
+  pure ()
+
+lexeme :: Parser a -> Parser a
+lexeme p = p <* skipNoCode
 
 -- | Parse a POSIX @Makefile@.
 mkFile :: Parser T.MkFile
 mkFile =
-  many
-    ( try (T.MkAssign <$> lexeme assign)
-        <|> try (T.MkInfRule <$> lexeme infRule)
-        <|> try (T.MkTgtRule <$> lexeme targetRule)
-        <|> try (T.MkInclude <$> lexeme include)
-    )
-    -- Ensure that we parse the whole Makefile
-    <* lexeme eof
+  skipNoCode
+    >> many
+      ( try (T.MkAssign <$> lexeme assign)
+          <|> try (T.MkInfRule <$> lexeme infRule)
+          <|> try (T.MkTgtRule <$> lexeme targetRule)
+          <|> try (T.MkInclude <$> lexeme include)
+      )
+      -- Ensure that we parse the whole Makefile
+      <* lexeme eof
 
 ------------------------------------------------------------------------
 
