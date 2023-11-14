@@ -1,8 +1,7 @@
 module Main where
 
 import Control.Exception (throwIO)
-import Data.Maybe (fromJust)
-import Mach.Error (MakeErr (..), TargetError (ZeroTargetsDefined))
+import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
 import Mach.Exec (lookupTarget, maybeBuild)
 import Mach.Parser (parseMkFile)
@@ -39,18 +38,31 @@ makeOpts argv =
 makefile :: FilePath -> IO MkDef
 makefile path = parseMkFile path >>= eval
 
-runMk :: FilePath -> IO ()
-runMk path = do
+runMk :: [String] -> FilePath -> IO ()
+runMk my_targets path = do
   mk <- makefile path
-  case firstTarget mk of
-    Nothing -> throwIO $ TargetErr ZeroTargetsDefined
-    Just tg -> maybeBuild mk (fromJust $ lookupTarget mk tg)
-  pure ()
+  targets <-
+    if null my_targets
+      then (: []) <$> firstTarget' mk
+      else pure my_targets
+
+  mapM (lookupTarget' mk) targets >>= mapM_ (maybeBuild mk)
+  where
+    firstTarget' mk = case firstTarget mk of
+      Nothing -> throwIO $ TargetErr ZeroTargetsDefined
+      Just tg -> pure tg
+
+    lookupTarget' mk t = case lookupTarget mk t of
+      Nothing -> throwIO $ TargetErr (NoSuchTarget t)
+      Just tg -> pure tg
 
 main :: IO ()
 main = do
-  (flags, _remain) <- getArgs >>= makeOpts
-  mapM_ runMk $
+  -- TODO: targets is all remaining non-flag arguments,
+  -- it may contain key=value pairs which must be parsed.
+  (flags, targets) <- getArgs >>= makeOpts
+
+  mapM_ (runMk targets) $
     case [f | Makefile f <- flags] of
       [] -> ["Makefile"]
       fs -> fs
