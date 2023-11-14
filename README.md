@@ -9,6 +9,11 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 ## Roadmap
 
 * [ ] Support for command-line options mandated by POSIX
+    * [x] Basic integration with `System.Console.GetOpt`
+    * [x] Support for specifying targets on the command-line
+    * [ ] Support for specifying assignments on the command-line
+    * [ ] Support for the `-f` flag
+    * [ ] Support for all other flags
 * [ ] Support for inference rules
     * [x] Parser support
     * [x] Handling of ".s2.s1" inference rules
