@@ -1,7 +1,7 @@
 module Mach.Exec where
 
 import Control.Exception (throwIO)
-import Control.Monad (filterM)
+import Control.Monad (filterM, unless)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..), TargetError (NoTargetOrFile))
 import Mach.Eval
@@ -48,14 +48,12 @@ isUp2Date target@(FileTarget name _) = do
     then pure False
     else null <$> newerPreqs target
 
--- Build a target if it isn't up-to-date. Returns true if the target
--- was build or false if it was already up-to-date and wasn't build.
-maybeBuild :: MkDef -> FileTarget -> IO Bool
+-- Build a target if it isn't up-to-date.
+maybeBuild :: MkDef -> FileTarget -> IO ()
 maybeBuild mk target@(FileTarget name tgtDef) = do
   -- Recursively ensure that all prerequisites are up-to-date.
   getTargetPreqs mk target >>= mapM_ (maybeBuild mk)
 
   up2Date <- isUp2Date target
-  if up2Date
-    then pure False
-    else runCmds (getCmds mk name tgtDef) >> pure True
+  unless up2Date $
+    runCmds (getCmds mk name tgtDef)

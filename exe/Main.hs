@@ -1,7 +1,6 @@
 module Main where
 
 import Control.Exception (throwIO)
-import Control.Monad (void)
 import Data.Maybe (fromJust)
 import Mach.Error (MakeErr (..), TargetError (ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
@@ -18,7 +17,7 @@ runMk path = do
   mk <- makefile path
   case firstTarget mk of
     Nothing -> throwIO $ TargetErr ZeroTargetsDefined
-    Just tg -> void $ maybeBuild mk (fromJust $ lookupTarget mk tg)
+    Just tg -> maybeBuild mk (fromJust $ lookupTarget mk tg)
   pure ()
 
 main :: IO ()
