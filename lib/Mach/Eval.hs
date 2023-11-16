@@ -125,6 +125,23 @@ expand env (T.ExpSub t s1 s2) =
       | s `isSuffixOf` w = take (length w - length s) w ++ r
       | otherwise = w
 
+mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
+mergeTargets old new =
+  (flip Map.union) old $
+    Map.mapWithKey
+      ( \k v -> case Map.lookup k old of
+          Just v' -> mergeTarget v' v
+          Nothing -> v
+      )
+      new
+  where
+    -- A target that has prerequisites, but does not have any commands,
+    -- can be used to add to the prerequisite list for that target.
+    mergeTarget :: TgtDef -> TgtDef -> TgtDef
+    mergeTarget (Target p c) (Target p' c')
+      | null c || null c' = Target (p ++ p') (c ++ c')
+      | otherwise = error "only one rule for a target can contain commands" -- TODO
+
 ------------------------------------------------------------------------
 
 evalAssign :: T.Env -> T.Assign -> (String, String)
@@ -173,7 +190,7 @@ eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
             env
             (fstTgt <|> Just initTarget)
             infs
-            $ Map.union newTargets targets
+            $ mergeTargets targets newTargets
         )
         xs
 
