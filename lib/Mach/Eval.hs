@@ -62,8 +62,14 @@ suffixes (MkDef _ _ infs _) = Map.keys infs
 -- | Lookup either a target or inference rule.
 lookupRule :: MkDef -> String -> Maybe TgtDef
 lookupRule mk@(MkDef _ _ infs targets) name =
-  Map.lookup name targets
-    <|> suffixLookup (suffixes mk) infs
+  let infRule = suffixLookup (suffixes mk) infs
+      tgtRule = Map.lookup name targets
+   in case tgtRule of
+        -- Allow dependencies to be added to inference
+        -- rules through target rules with no commands.
+        Just tg@(Target _ []) -> (mergeTarget tg <$> infRule) <|> Just tg
+        Just tg -> Just tg
+        Nothing -> infRule
   where
     suffixLookup :: [String] -> Map.Map String TgtDef -> Maybe TgtDef
     suffixLookup [] _ = Nothing
@@ -125,6 +131,13 @@ expand env (T.ExpSub t s1 s2) =
       | s `isSuffixOf` w = take (length w - length s) w ++ r
       | otherwise = w
 
+-- A target that has prerequisites, but does not have any commands,
+-- can be used to add to the prerequisite list for that target.
+mergeTarget :: TgtDef -> TgtDef -> TgtDef
+mergeTarget (Target p c) (Target p' c')
+  | null c || null c' = Target (p ++ p') (c ++ c')
+  | otherwise = error "only one rule for a target can contain commands" -- TODO
+
 mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
 mergeTargets old new =
   (flip Map.union) old $
@@ -134,13 +147,6 @@ mergeTargets old new =
           Nothing -> v
       )
       new
-  where
-    -- A target that has prerequisites, but does not have any commands,
-    -- can be used to add to the prerequisite list for that target.
-    mergeTarget :: TgtDef -> TgtDef -> TgtDef
-    mergeTarget (Target p c) (Target p' c')
-      | null c || null c' = Target (p ++ p') (c ++ c')
-      | otherwise = error "only one rule for a target can contain commands" -- TODO
 
 ------------------------------------------------------------------------
 
