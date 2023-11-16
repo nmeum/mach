@@ -188,15 +188,15 @@ include = do
   _ <- maybeBlanks
   pure paths
 
-comment :: Parser String
-comment = char '#' >> manyTill anyChar newline
-
 skipNoCode :: Parser ()
 skipNoCode = do
   _ <- many blank
   _ <- many newline
   _ <- skipMany (try comment >> many blank >> many newline)
   pure ()
+  where
+    comment :: Parser String
+    comment = char '#' >> manyTill anyChar newline
 
 lexeme :: Parser a -> Parser a
 lexeme p = p <* skipNoCode
