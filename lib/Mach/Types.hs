@@ -3,8 +3,17 @@ module Mach.Types where
 
 import qualified Data.Map as Map
 
+-- | A macro assignment, can either be evaluated when the macro
+-- is assigned (immediate) or when the macro is used (delayed).
+data MacroAssign
+  = -- | Immediate assignment
+    AssignI String
+  | -- | Delayed assignment
+    AssignD Token
+  deriving (Show)
+
 -- | Makefile environment consisting of macro definitions.
-type Env = Map.Map String String
+type Env = Map.Map String MacroAssign
 
 -- | Tokens of text which are potentially subject to macro expansion.
 data Token

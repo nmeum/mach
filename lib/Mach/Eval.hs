@@ -100,8 +100,8 @@ getCmds (MkDef env _ _ _) name (Target preqs cmds) =
     internalMacros :: T.Env
     internalMacros =
       Map.fromList
-        [ ("^", unwords preqs),
-          ("@", name)
+        [ ("^", T.AssignI $ unwords preqs),
+          ("@", T.AssignI $ name)
         ]
 
 runCmds :: Cmds -> IO ()
@@ -115,10 +115,17 @@ runCmds (Cmds cmds) = mapM_ runCmd cmds
     runCmd ('@' : cmd) = callCommand cmd
     runCmd cmd = putStrLn cmd >> callCommand cmd
 
+lookupAssign :: T.Env -> String -> Maybe String
+lookupAssign env name = Map.lookup name env >>= lookupAssign'
+  where
+    lookupAssign' :: T.MacroAssign -> Maybe String
+    lookupAssign' (T.AssignI str) = Just str
+    lookupAssign' (T.AssignD tok) = Just $ expand env tok
+
 -- Expand a given macro in the context of a given environment.
 expand :: T.Env -> T.Token -> String
 expand _ (T.Lit t) = t
-expand env (T.Exp t) = fromMaybe "" (Map.lookup (expand env t) env)
+expand env (T.Exp t) = fromMaybe "" (lookupAssign env (expand env t))
 expand env (T.Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
 expand env (T.ExpSub t s1 s2) =
   unwords $
@@ -150,11 +157,11 @@ mergeTargets old new =
 
 ------------------------------------------------------------------------
 
-evalAssign :: T.Env -> T.Assign -> (String, String)
+evalAssign :: T.Env -> T.Assign -> (String, T.MacroAssign)
 evalAssign env (T.Assign name ty val) =
   case ty of
-    T.Delayed -> error "unsupported"
-    T.Immediate -> (name, expand env val)
+    T.Delayed -> (name, T.AssignD val)
+    T.Immediate -> (name, T.AssignI $ expand env val)
     T.StrictDelay -> error "unsupported"
     T.System -> error "unsupported"
     T.Cond -> error "unsupported"
