@@ -9,7 +9,7 @@ YACC = yacc
 LEX = lex
 #LFLAGS =
 #LDFLAGS =
-CC = c17
+CC = cc # TODO: use cc17 here
 CFLAGS = -O 1
 
 ##
