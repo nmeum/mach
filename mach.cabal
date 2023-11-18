@@ -11,6 +11,7 @@ maintainer:         soeren+git@soeren-tempel.net
 category:           Development
 build-type:         Simple
 extra-doc-files:    README.md
+data-files:         share/*.mk
 -- extra-source-files:
 
 common warnings
@@ -42,7 +43,7 @@ library
 executable mach
     import:           warnings
     main-is:          Main.hs
-    -- other-modules:
+    other-modules:    Paths_mach
     -- other-extensions:
     build-depends:
         base   ^>=4.17.2.0,

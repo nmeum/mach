@@ -5,6 +5,8 @@ import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
 import Mach.Exec (lookupTarget, maybeBuild)
 import Mach.Parser (parseMkFile)
+import Mach.Types (MkFile)
+import Paths_mach (getDataFileName)
 import System.Console.GetOpt
   ( ArgDescr (NoArg, ReqArg),
     ArgOrder (Permute),
@@ -35,12 +37,15 @@ makeOpts argv =
 
 ------------------------------------------------------------------------
 
-makefile :: FilePath -> IO MkDef
-makefile path = parseMkFile path >>= eval
+makefile :: MkFile -> FilePath -> IO MkDef
+makefile builtins path = do
+  f <- parseMkFile path
+  -- TODO: evaluate builtins once
+  eval (builtins ++ f)
 
-runMk :: [String] -> FilePath -> IO ()
-runMk my_targets path = do
-  mk <- makefile path
+runMk :: MkFile -> [String] -> FilePath -> IO ()
+runMk builtins my_targets path = do
+  mk <- makefile builtins path
   targets <-
     if null my_targets
       then (: []) <$> firstTarget' mk
@@ -62,7 +67,10 @@ main = do
   -- it may contain key=value pairs which must be parsed.
   (flags, targets) <- getArgs >>= makeOpts
 
-  mapM_ (runMk targets) $
+  -- Builtin macros as mandated by POSIX
+  builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
+
+  mapM_ (runMk builtins targets) $
     case [f | Makefile f <- flags] of
       [] -> ["Makefile"]
       fs -> fs
