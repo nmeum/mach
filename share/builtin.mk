@@ -10,7 +10,7 @@ LEX = lex
 #LFLAGS =
 #LDFLAGS =
 CC = cc # TODO: use cc17 here
-CFLAGS = -O 1
+CFLAGS = -O1
 
 ##
 # Single Suffix Rules
