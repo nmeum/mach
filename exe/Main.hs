@@ -57,9 +57,11 @@ runMk builtins my_targets path = do
       Nothing -> throwIO $ TargetErr ZeroTargetsDefined
       Just tg -> pure tg
 
-    lookupTarget' mk t = case lookupTarget mk t of
-      Nothing -> throwIO $ TargetErr (NoSuchTarget t)
-      Just tg -> pure tg
+    lookupTarget' mk t = do
+      tgt <- lookupTarget mk t
+      case tgt of
+        Nothing -> throwIO $ TargetErr (NoSuchTarget t)
+        Just tg -> pure tg
 
 main :: IO ()
 main = do

@@ -18,6 +18,7 @@ import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
+import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
 -- Expanded commands of a target.
@@ -60,26 +61,36 @@ suffixes :: MkDef -> [String]
 suffixes (MkDef _ _ infs _) = Map.keys infs
 
 -- | Lookup either a target or inference rule.
-lookupRule :: MkDef -> String -> Maybe TgtDef
+--
+-- TODO: Refactor this
+lookupRule :: MkDef -> String -> IO (Maybe TgtDef)
 lookupRule mk@(MkDef _ _ infs targets) name =
-  let infRule = suffixLookup (suffixes mk) infs
-      tgtRule = Map.lookup name targets
-   in case tgtRule of
-        -- Allow dependencies to be added to inference
-        -- rules through target rules with no commands.
-        Just tg@(Target _ []) -> (mergeTarget tg <$> infRule) <|> Just tg
-        Just tg -> Just tg
-        Nothing -> infRule
+  case Map.lookup name targets of
+    -- Allow dependencies to be added to inference
+    -- rules through target rules with no commands.
+    Just tg@(Target _ []) -> do
+      inf <- infRule
+      pure $ (mergeTarget tg <$> inf) <|> Just tg
+    Just tg -> pure $ Just tg
+    Nothing -> infRule
   where
-    suffixLookup :: [String] -> Map.Map String TgtDef -> Maybe TgtDef
-    suffixLookup [] _ = Nothing
-    suffixLookup (ruleName : xs) infRules =
+    infRule :: IO (Maybe TgtDef)
+    infRule = suffixLookup (suffixes mk) infs
+
+    suffixLookup :: [String] -> Map.Map String TgtDef -> IO (Maybe TgtDef)
+    suffixLookup [] _ = pure Nothing
+    suffixLookup (ruleName : xs) infRules = do
       let (src, tgt) = getSuffixes ruleName
-       in if tgt `isSuffixOf` name
-            then
-              (\(Target _ cmds) -> Target [stripSuffix name ++ src] cmds)
+      let fnameNoExt = stripSuffix name
+
+      srcExists <- doesPathExist $ fnameNoExt ++ src
+      if tgt `isSuffixOf` name && srcExists
+        then
+          pure
+            ( (\(Target _ cmds) -> Target [fnameNoExt ++ src] cmds)
                 <$> Map.lookup ruleName infRules
-            else suffixLookup xs infRules
+            )
+        else suffixLookup xs infRules
 
     stripSuffix :: String -> String
     stripSuffix = fst . getSuffixes

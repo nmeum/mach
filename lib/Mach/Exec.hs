@@ -9,9 +9,10 @@ import System.Directory (doesPathExist, getModificationTime)
 
 data FileTarget = FileTarget FilePath TgtDef
 
-lookupTarget :: MkDef -> String -> Maybe FileTarget
-lookupTarget mkDef name =
-  FileTarget name <$> lookupRule mkDef name
+lookupTarget :: MkDef -> String -> IO (Maybe FileTarget)
+lookupTarget mkDef name = do
+  rule <- lookupRule mkDef name
+  pure (FileTarget name <$> rule)
 
 -- Return all prerequisites which represent targets. If a prerequisite
 -- is neither a target nor an existing file, then an error is thrown.
@@ -23,8 +24,9 @@ getTargetPreqs mk (FileTarget _ target) =
     -- with the given name exists, then throw an error. If no
     -- target but a file exists, return Nothing.
     targetOrFile :: String -> IO (Maybe FileTarget)
-    targetOrFile name =
-      case lookupTarget mk name of
+    targetOrFile name = do
+      t <- lookupTarget mk name
+      case t of
         Just x -> pure $ Just x
         Nothing -> do
           exists <- doesPathExist name

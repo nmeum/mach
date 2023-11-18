@@ -23,25 +23,26 @@ CFLAGS = -O 1
 ##
 
 ## TODO: Use $< instead of $^ here
+
 .c.o:
 	$(CC) $(CFLAGS) -c $^
 
-# .y.o:
-# 	$(YACC) $(YFLAGS) $<
-# 	$(CC) $(CFLAGS) -c y.tab.c
-# 	rm -f y.tab.c
-# 	mv y.tab.o $@
+.y.o:
+	$(YACC) $(YFLAGS) $^
+	$(CC) $(CFLAGS) -c y.tab.c
+	rm -f y.tab.c
+	mv y.tab.o $@
 
-# .l.o:
-# 	$(LEX) $(LFLAGS) $<
-# 	$(CC) $(CFLAGS) -c lex.yy.c
-# 	rm -f lex.yy.c
-# 	mv lex.yy.o $@
+.l.o:
+	$(LEX) $(LFLAGS) $^
+	$(CC) $(CFLAGS) -c lex.yy.c
+	rm -f lex.yy.c
+	mv lex.yy.o $@
 
-# .y.c:
-# 	$(YACC) $(YFLAGS) $<
-# 	mv y.tab.c $@
+.y.c:
+	$(YACC) $(YFLAGS) $^
+	mv y.tab.c $@
 
-# .l.c:
-# 	$(LEX) $(LFLAGS) $<
-# 	mv lex.yy.c $@
+.l.c:
+	$(LEX) $(LFLAGS) $^
+	mv lex.yy.c $@
