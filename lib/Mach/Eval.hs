@@ -148,10 +148,11 @@ expand env (T.ExpSub t s1 s2) =
 -- A target that has prerequisites, but does not have any commands,
 -- can be used to add to the prerequisite list for that target.
 mergeTarget :: TgtDef -> TgtDef -> TgtDef
-mergeTarget t t'
-  | null (getCmds' t) || null (getCmds' t') =
-      Target (getPreqs t ++ getPreqs t') (getSrc t <|> getSrc t') (getCmds' t ++ getCmds' t')
-  | otherwise = error "only one rule for a target can contain commands" -- TODO
+mergeTarget
+  Target {getPreqs = p, getSrc = s, getCmds' = c}
+  Target {getPreqs = p', getSrc = s', getCmds' = c'}
+    | null c || null c' = Target (p ++ p') (s <|> s') (c ++ c')
+    | otherwise = error "only one rule for a target can contain commands" -- TODO
 
 mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
 mergeTargets old new =
