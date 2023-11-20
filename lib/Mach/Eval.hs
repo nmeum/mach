@@ -21,10 +21,8 @@ import qualified Mach.Types as T
 import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
--- Expanded commands of a target.
-newtype Cmds = Cmds [String]
-
-data TgtDef = Target
+-- | Expanded target definition of a target rule or inference rule.
+data TgtDef = TgtDef
   { -- | Prerequisites (expanded)
     getPreqs :: [String],
     -- | Source file name for inferred targets.
@@ -34,22 +32,22 @@ data TgtDef = Target
   }
   deriving (Show)
 
+-- | Expanded makefile definition.
 data MkDef
   = MkDef
       -- | Macros defined in this Makefile.
-      T.Env
+      Env
       -- | First "normal" target defined in the Makefile.
       (Maybe String)
       -- | Inference rules defined in this Makefile.
       (Map.Map String TgtDef)
-      -- | Targets defined in this Makefile.
+      -- | TgtDefs defined in this Makefile.
       (Map.Map String TgtDef)
   deriving (Show)
 
-------------------------------------------------------------------------
-
--- | Obtain the first target that is not a special target or an
--- inference rule. 'Nothing' if the Makefile defines no targets.
+-- | Obtain the name of the first defined target that is not a special
+-- target or an inference rule. 'Nothing' if the Makefile defines no
+-- target rules.
 firstTarget :: MkDef -> Maybe String
 firstTarget (MkDef _ fstTarget _ _) = fstTarget
 
@@ -59,7 +57,17 @@ firstTarget (MkDef _ fstTarget _ _) = fstTarget
 suffixes :: MkDef -> [String]
 suffixes (MkDef _ _ infs _) = Map.keys infs
 
--- | Lookup either a target or inference rule.
+-- | TODO
+stripSuffix :: String -> String
+stripSuffix = fst . getSuffixes
+
+-- For a string of the form `.s2.s1` return `(".s2", ".s1")`.
+--
+-- TODO: Ensure that the string only contains two period characters.
+getSuffixes :: String -> (String, String)
+getSuffixes str = splitAt (last $ elemIndices '.' str) str
+
+-- | Lookup a target definition, the definition may be inferred.
 --
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe TgtDef)
@@ -70,44 +78,59 @@ lookupRule mk@(MkDef _ _ infs targets) name =
       if null (getCmds' tg)
         then do
           inf <- infRule
-          pure $ (mergeTarget tg <$> inf) <|> Just tg
+          pure $ (mergeDef tg <$> inf) <|> Just tg
         else pure $ Just tg
   where
     infRule :: IO (Maybe TgtDef)
-    infRule = suffixLookup (suffixes mk) infs
+    infRule = doubleSuffix name (suffixes mk) infs
 
-    suffixLookup :: [String] -> Map.Map String TgtDef -> IO (Maybe TgtDef)
-    suffixLookup [] _ = pure Nothing
-    suffixLookup (ruleName : xs) infRules = do
-      let (src, tgt) = getSuffixes ruleName
-      let fnameNoExt = stripSuffix name
+doubleSuffix :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe TgtDef)
+doubleSuffix _ [] _ = pure Nothing
+doubleSuffix name (ruleName : xs) infRules = do
+  let (src, tgt) = getSuffixes ruleName
+  let fnameNoExt = stripSuffix name
 
-      let srcName = fnameNoExt ++ src
-      srcExists <- doesPathExist srcName
-      if tgt `isSuffixOf` name && srcExists
-        then do
-          let cmds = getCmds' <$> Map.lookup ruleName infRules
-          pure (Target [fnameNoExt ++ src] (Just srcName) <$> cmds)
-        else suffixLookup xs infRules
+  let srcName = fnameNoExt ++ src
+  srcExists <- doesPathExist srcName
+  if tgt `isSuffixOf` name && srcExists
+    then do
+      let cmds = getCmds' <$> Map.lookup ruleName infRules
+      pure (TgtDef [fnameNoExt ++ src] (Just srcName) <$> cmds)
+    else doubleSuffix name xs infRules
 
-    stripSuffix :: String -> String
-    stripSuffix = fst . getSuffixes
+-- A target that has prerequisites, but does not have any commands,
+-- can be used to add to the prerequisite list for that target.
+mergeDef :: TgtDef -> TgtDef -> TgtDef
+mergeDef
+  TgtDef {getPreqs = p, getSrc = s, getCmds' = c}
+  TgtDef {getPreqs = p', getSrc = s', getCmds' = c'}
+    | null c || null c' = TgtDef (p ++ p') (s <|> s') (c ++ c')
+    | otherwise = error "only one rule for a target can contain commands" -- TODO
 
-    -- For a string of the form `.s2.s1` return `(".s2", ".s1")`.
-    --
-    -- TODO: Ensure that the string only contains two period characters.
-    getSuffixes :: String -> (String, String)
-    getSuffixes str = splitAt (last $ elemIndices '.' str) str
+mergeDefs :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
+mergeDefs old new =
+  flip Map.union old $
+    Map.mapWithKey
+      ( \k v -> case Map.lookup k old of
+          Just v' -> mergeDef v' v
+          Nothing -> v
+      )
+      new
+
+------------------------------------------------------------------------
+
+-- | Expanded commands of a target.
+newtype Cmds = Cmds [String]
 
 getCmds :: MkDef -> String -> TgtDef -> Cmds
 getCmds (MkDef env _ _ _) name target =
   Cmds $ fmap (expand $ Map.union internalMacros env) (getCmds' target)
   where
-    internalMacros :: T.Env
+    internalMacros :: Env
     internalMacros =
       Map.fromList
         [ ("^", T.AssignI $ unwords (getPreqs target)),
-          ("@", T.AssignI $ name),
+          ("@", T.AssignI name),
           ("<", T.AssignI $ fromMaybe "" (getSrc target))
         ]
 
@@ -122,7 +145,12 @@ runCmds (Cmds cmds) = mapM_ runCmd cmds
     runCmd ('@' : cmd) = callCommand cmd
     runCmd cmd = putStrLn cmd >> callCommand cmd
 
-lookupAssign :: T.Env -> String -> Maybe String
+------------------------------------------------------------------------
+
+-- | Makefile environment consisting of macro definitions.
+type Env = Map.Map String T.MacroAssign
+
+lookupAssign :: Env -> String -> Maybe String
 lookupAssign env name = Map.lookup name env >>= lookupAssign'
   where
     lookupAssign' :: T.MacroAssign -> Maybe String
@@ -130,7 +158,7 @@ lookupAssign env name = Map.lookup name env >>= lookupAssign'
     lookupAssign' (T.AssignD tok) = Just $ expand env tok
 
 -- Expand a given macro in the context of a given environment.
-expand :: T.Env -> T.Token -> String
+expand :: Env -> T.Token -> String
 expand _ (T.Lit t) = t
 expand env (T.Exp t) = fromMaybe "" (lookupAssign env (expand env t))
 expand env (T.Seq s) = foldr (\x acc -> expand env x ++ acc) "" s
@@ -145,28 +173,9 @@ expand env (T.ExpSub t s1 s2) =
       | s `isSuffixOf` w = take (length w - length s) w ++ r
       | otherwise = w
 
--- A target that has prerequisites, but does not have any commands,
--- can be used to add to the prerequisite list for that target.
-mergeTarget :: TgtDef -> TgtDef -> TgtDef
-mergeTarget
-  Target {getPreqs = p, getSrc = s, getCmds' = c}
-  Target {getPreqs = p', getSrc = s', getCmds' = c'}
-    | null c || null c' = Target (p ++ p') (s <|> s') (c ++ c')
-    | otherwise = error "only one rule for a target can contain commands" -- TODO
-
-mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
-mergeTargets old new =
-  (flip Map.union) old $
-    Map.mapWithKey
-      ( \k v -> case Map.lookup k old of
-          Just v' -> mergeTarget v' v
-          Nothing -> v
-      )
-      new
-
 ------------------------------------------------------------------------
 
-evalAssign :: T.Env -> T.Assign -> (String, T.MacroAssign)
+evalAssign :: Env -> T.Assign -> (String, T.MacroAssign)
 evalAssign env (T.Assign name ty val) =
   case ty of
     T.Delayed -> (name, T.AssignD val)
@@ -176,9 +185,19 @@ evalAssign env (T.Assign name ty val) =
     T.Cond -> error "unsupported"
     T.Append -> error "unsupported"
 
-evalTgtRule :: T.Env -> T.TgtRule -> Map.Map String TgtDef
+evalInclude :: MkDef -> [T.Token] -> IO MkDef
+evalInclude def@(MkDef env _ _ _) elems =
+  foldM
+    ( \mkDef path -> do
+        mk <- parseMkFile path
+        eval' mkDef mk
+    )
+    def
+    $ map (expand env) elems
+
+evalTgtRule :: Env -> T.TgtRule -> Map.Map String TgtDef
 evalTgtRule env (T.TgtRule tgts preqs cmds) =
-  let def = Target (exLst preqs) Nothing cmds
+  let def = TgtDef (exLst preqs) Nothing cmds
    in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
     exLst = concatMap (words . expand env)
@@ -189,33 +208,22 @@ eval' (MkDef env fstTgt infs targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
    in eval' (MkDef newEnviron fstTgt infs targets) xs
-eval' def@(MkDef env _ _ _) ((T.MkInclude elems) : xs) = do
-  let paths = map (expand env) elems
-  included <-
-    foldM
-      ( \mkDef path -> do
-          mk <- parseMkFile path
-          eval' mkDef mk
-      )
-      def
-      paths
-
-  eval' included xs
+eval' def ((T.MkInclude elems) : xs) =
+  evalInclude def elems >>= flip eval' xs
 eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
-  let def = Target [] Nothing cmds
+  let def = TgtDef [] Nothing cmds
    in eval' (MkDef env fstTgt (Map.insert target def infs) targets) xs
 eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
-  let newTargets = evalTgtRule env rule
-      initTarget = head $ Map.keys newTargets
+  let newTgtDefs = evalTgtRule env rule
+      initTgtDef = head $ Map.keys newTgtDefs
    in eval'
         ( MkDef
             env
-            (fstTgt <|> Just initTarget)
+            (fstTgt <|> Just initTgtDef)
             infs
-            $ mergeTargets targets newTargets
+            $ mergeDefs targets newTgtDefs
         )
         xs
 
--- TODO: Extract command-line environment here.
 eval :: T.MkFile -> IO MkDef
 eval = eval' (MkDef Map.empty Nothing Map.empty Map.empty)
