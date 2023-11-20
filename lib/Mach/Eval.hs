@@ -27,12 +27,12 @@ newtype Cmds = Cmds [String]
 -- TODO: Consider expanding this, also tracking the name and the
 -- type of the rule here (e.g. for inference rules). Useful for
 -- the implementation of internal macros.
-data TgtDef
-  = Target
-      -- | Prerequisites (expanded)
-      [String]
-      -- | Commands
-      [T.Token]
+data TgtDef = Target
+  { -- | Prerequisites (expanded)
+    getPreqs :: [String],
+    -- | Commands
+    getCmds' :: [T.Token]
+  }
   deriving (Show)
 
 data MkDef
@@ -66,13 +66,13 @@ suffixes (MkDef _ _ infs _) = Map.keys infs
 lookupRule :: MkDef -> String -> IO (Maybe TgtDef)
 lookupRule mk@(MkDef _ _ infs targets) name =
   case Map.lookup name targets of
-    -- Allow dependencies to be added to inference
-    -- rules through target rules with no commands.
-    Just tg@(Target _ []) -> do
-      inf <- infRule
-      pure $ (mergeTarget tg <$> inf) <|> Just tg
-    Just tg -> pure $ Just tg
     Nothing -> infRule
+    Just tg ->
+      if null (getCmds' tg)
+        then do
+          inf <- infRule
+          pure $ (mergeTarget tg <$> inf) <|> Just tg
+        else pure $ Just tg
   where
     infRule :: IO (Maybe TgtDef)
     infRule = suffixLookup (suffixes mk) infs
@@ -85,11 +85,9 @@ lookupRule mk@(MkDef _ _ infs targets) name =
 
       srcExists <- doesPathExist $ fnameNoExt ++ src
       if tgt `isSuffixOf` name && srcExists
-        then
-          pure
-            ( (\(Target _ cmds) -> Target [fnameNoExt ++ src] cmds)
-                <$> Map.lookup ruleName infRules
-            )
+        then do
+          let cmds = getCmds' <$> Map.lookup ruleName infRules
+          pure (Target [fnameNoExt ++ src] <$> cmds)
         else suffixLookup xs infRules
 
     stripSuffix :: String -> String
@@ -101,17 +99,14 @@ lookupRule mk@(MkDef _ _ infs targets) name =
     getSuffixes :: String -> (String, String)
     getSuffixes str = splitAt (last $ elemIndices '.' str) str
 
-getPreqs :: TgtDef -> [String]
-getPreqs (Target preqs _) = preqs
-
 getCmds :: MkDef -> String -> TgtDef -> Cmds
-getCmds (MkDef env _ _ _) name (Target preqs cmds) =
-  Cmds $ fmap (expand $ Map.union internalMacros env) cmds
+getCmds (MkDef env _ _ _) name target =
+  Cmds $ fmap (expand $ Map.union internalMacros env) (getCmds' target)
   where
     internalMacros :: T.Env
     internalMacros =
       Map.fromList
-        [ ("^", T.AssignI $ unwords preqs),
+        [ ("^", T.AssignI $ unwords (getPreqs target)),
           ("@", T.AssignI $ name)
         ]
 
@@ -152,8 +147,9 @@ expand env (T.ExpSub t s1 s2) =
 -- A target that has prerequisites, but does not have any commands,
 -- can be used to add to the prerequisite list for that target.
 mergeTarget :: TgtDef -> TgtDef -> TgtDef
-mergeTarget (Target p c) (Target p' c')
-  | null c || null c' = Target (p ++ p') (c ++ c')
+mergeTarget t t'
+  | null (getCmds' t) || null (getCmds' t') =
+      Target (getPreqs t ++ getPreqs t') (getCmds' t ++ getCmds' t')
   | otherwise = error "only one rule for a target can contain commands" -- TODO
 
 mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
