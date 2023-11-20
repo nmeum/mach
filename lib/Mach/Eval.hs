@@ -24,12 +24,11 @@ import System.Process (callCommand, createProcess, shell, waitForProcess)
 -- Expanded commands of a target.
 newtype Cmds = Cmds [String]
 
--- TODO: Consider expanding this, also tracking the name and the
--- type of the rule here (e.g. for inference rules). Useful for
--- the implementation of internal macros.
 data TgtDef = Target
   { -- | Prerequisites (expanded)
     getPreqs :: [String],
+    -- | Source file name for inferred targets.
+    getSrc :: Maybe String,
     -- | Commands
     getCmds' :: [T.Token]
   }
@@ -83,11 +82,12 @@ lookupRule mk@(MkDef _ _ infs targets) name =
       let (src, tgt) = getSuffixes ruleName
       let fnameNoExt = stripSuffix name
 
-      srcExists <- doesPathExist $ fnameNoExt ++ src
+      let srcName = fnameNoExt ++ src
+      srcExists <- doesPathExist srcName
       if tgt `isSuffixOf` name && srcExists
         then do
           let cmds = getCmds' <$> Map.lookup ruleName infRules
-          pure (Target [fnameNoExt ++ src] <$> cmds)
+          pure (Target [fnameNoExt ++ src] (Just srcName) <$> cmds)
         else suffixLookup xs infRules
 
     stripSuffix :: String -> String
@@ -107,7 +107,8 @@ getCmds (MkDef env _ _ _) name target =
     internalMacros =
       Map.fromList
         [ ("^", T.AssignI $ unwords (getPreqs target)),
-          ("@", T.AssignI $ name)
+          ("@", T.AssignI $ name),
+          ("<", T.AssignI $ fromMaybe "" (getSrc target))
         ]
 
 runCmds :: Cmds -> IO ()
@@ -149,7 +150,7 @@ expand env (T.ExpSub t s1 s2) =
 mergeTarget :: TgtDef -> TgtDef -> TgtDef
 mergeTarget t t'
   | null (getCmds' t) || null (getCmds' t') =
-      Target (getPreqs t ++ getPreqs t') (getCmds' t ++ getCmds' t')
+      Target (getPreqs t ++ getPreqs t') (getSrc t <|> getSrc t') (getCmds' t ++ getCmds' t')
   | otherwise = error "only one rule for a target can contain commands" -- TODO
 
 mergeTargets :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
@@ -176,7 +177,7 @@ evalAssign env (T.Assign name ty val) =
 
 evalTgtRule :: T.Env -> T.TgtRule -> Map.Map String TgtDef
 evalTgtRule env (T.TgtRule tgts preqs cmds) =
-  let def = Target (exLst preqs) cmds
+  let def = Target (exLst preqs) Nothing cmds
    in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
     exLst = concatMap (words . expand env)
@@ -200,7 +201,7 @@ eval' def@(MkDef env _ _ _) ((T.MkInclude elems) : xs) = do
 
   eval' included xs
 eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
-  let def = Target [] cmds
+  let def = Target [] Nothing cmds
    in eval' (MkDef env fstTgt (Map.insert target def infs) targets) xs
 eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
   let newTargets = evalTgtRule env rule

@@ -22,27 +22,25 @@ CFLAGS = -O1
 # Double Suffix Rules
 ##
 
-## TODO: Use $< instead of $^ here
-
 .c.o:
-	$(CC) $(CFLAGS) -c $^
+	$(CC) $(CFLAGS) -c $<
 
 .y.o:
-	$(YACC) $(YFLAGS) $^
+	$(YACC) $(YFLAGS) $<
 	$(CC) $(CFLAGS) -c y.tab.c
 	rm -f y.tab.c
 	mv y.tab.o $@
 
 .l.o:
-	$(LEX) $(LFLAGS) $^
+	$(LEX) $(LFLAGS) $<
 	$(CC) $(CFLAGS) -c lex.yy.c
 	rm -f lex.yy.c
 	mv lex.yy.o $@
 
 .y.c:
-	$(YACC) $(YFLAGS) $^
+	$(YACC) $(YFLAGS) $<
 	mv y.tab.c $@
 
 .l.c:
-	$(LEX) $(LFLAGS) $^
+	$(LEX) $(LFLAGS) $<
 	mv lex.yy.c $@
