@@ -16,6 +16,7 @@ where
 import Control.Applicative ((<|>))
 import Control.Exception (throwIO)
 import Control.Monad (foldM, void)
+import Data.Functor ((<&>))
 import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
@@ -88,9 +89,11 @@ lookupRule mk@(MkDef _ _ infs targets) name =
     lookupRule' Nothing = infRule
     lookupRule' (Just t)
       | null (getCmds' t) =
-          infRule >>= \case
-            Nothing -> pure $ Just t
-            Just x -> pure (mergeDef x t) <|> throwIO (TargetErr MultipleDefines)
+          infRule <&> \case
+            Nothing -> Just t
+            -- mergeDef will never return Nothing as
+            -- inference rules do not have any prerqs.
+            Just x -> mergeDef x t
       | otherwise = pure $ Just t
 
     infRule :: IO (Maybe TgtDef)
