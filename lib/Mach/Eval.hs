@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 -- | This module performs Makefile macro expansion.
 module Mach.Eval
   ( TgtDef,
@@ -12,14 +14,22 @@ module Mach.Eval
 where
 
 import Control.Applicative ((<|>))
+import Control.Exception (throwIO)
 import Control.Monad (foldM, void)
 import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
+import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
+
+----
+-- TODO: Move FileTarget here and also add the getSrc field to it
+--
+-- Seperate constructors for file and inference targets
+----
 
 -- | Expanded target definition of a target rule or inference rule.
 data TgtDef = TgtDef
@@ -72,15 +82,17 @@ getSuffixes str = splitAt (last $ elemIndices '.' str) str
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe TgtDef)
 lookupRule mk@(MkDef _ _ infs targets) name =
-  case Map.lookup name targets of
-    Nothing -> infRule
-    Just tg ->
-      if null (getCmds' tg)
-        then do
-          inf <- infRule
-          pure $ (mergeDef tg <$> inf) <|> Just tg
-        else pure $ Just tg
+  lookupRule' $ Map.lookup name targets
   where
+    lookupRule' :: Maybe TgtDef -> IO (Maybe TgtDef)
+    lookupRule' Nothing = infRule
+    lookupRule' (Just t)
+      | null (getCmds' t) =
+          infRule >>= \case
+            Nothing -> pure $ Just t
+            Just x -> pure (mergeDef x t) <|> throwIO (TargetErr MultipleDefines)
+      | otherwise = pure $ Just t
+
     infRule :: IO (Maybe TgtDef)
     infRule = doubleSuffix name (suffixes mk) infs
 
@@ -100,20 +112,22 @@ doubleSuffix name (ruleName : xs) infRules = do
 
 -- A target that has prerequisites, but does not have any commands,
 -- can be used to add to the prerequisite list for that target.
-mergeDef :: TgtDef -> TgtDef -> TgtDef
+-- Returns nothing if the targets cannot be merged, i.e. if both
+-- targets define commands.
+mergeDef :: TgtDef -> TgtDef -> Maybe TgtDef
 mergeDef
   TgtDef {getPreqs = p, getSrc = s, getCmds' = c}
   TgtDef {getPreqs = p', getSrc = s', getCmds' = c'}
-    | null c || null c' = TgtDef (p ++ p') (s <|> s') (c ++ c')
-    | otherwise = error "only one rule for a target can contain commands" -- TODO
+    | null c || null c' = Just $ TgtDef (p ++ p') (s <|> s') (c ++ c')
+    | otherwise = Nothing
 
-mergeDefs :: Map.Map String TgtDef -> Map.Map String TgtDef -> Map.Map String TgtDef
+mergeDefs :: Map.Map String TgtDef -> Map.Map String TgtDef -> Maybe (Map.Map String TgtDef)
 mergeDefs old new =
-  flip Map.union old $
-    Map.mapWithKey
+  flip Map.union old
+    <$> Map.traverseWithKey
       ( \k v -> case Map.lookup k old of
           Just v' -> mergeDef v' v
-          Nothing -> v
+          Nothing -> Just v
       )
       new
 
@@ -216,14 +230,9 @@ eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : x
 eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
   let newTgtDefs = evalTgtRule env rule
       initTgtDef = head $ Map.keys newTgtDefs
-   in eval'
-        ( MkDef
-            env
-            (fstTgt <|> Just initTgtDef)
-            infs
-            $ mergeDefs targets newTgtDefs
-        )
-        xs
+   in case mergeDefs targets newTgtDefs of
+        Nothing -> throwIO $ TargetErr MultipleDefines
+        Just nt -> eval' (MkDef env (fstTgt <|> Just initTgtDef) infs nt) xs
 
 eval :: T.MkFile -> IO MkDef
 eval = eval' (MkDef Map.empty Nothing Map.empty Map.empty)
