@@ -10,6 +10,9 @@ module Mach.Eval
     getCmds,
     runCmds,
     eval,
+    Target,
+    getName,
+    getDef,
   )
 where
 
@@ -26,20 +29,16 @@ import qualified Mach.Types as T
 import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
-----
--- TODO: Move FileTarget here and also add the getSrc field to it
---
--- Seperate constructors for file and inference targets
-----
-
 -- | Expanded target definition of a target rule or inference rule.
+-- The same target definition may be used for multiple files. For
+-- example, when a target rule is defined for multiple targets.
+--
+-- Refer to 'Target' for more information.
 data TgtDef = TgtDef
   { -- | Prerequisites (expanded)
     getPreqs :: [String],
-    -- | Source file name for inferred targets.
-    getSrc :: Maybe String,
     -- | Commands
-    getCmds' :: [T.Token]
+    getRawCmds :: [T.Token]
   }
   deriving (Show)
 
@@ -81,36 +80,39 @@ getSuffixes str = splitAt (last $ elemIndices '.' str) str
 -- | Lookup a target definition, the definition may be inferred.
 --
 -- TODO: Refactor this
-lookupRule :: MkDef -> String -> IO (Maybe TgtDef)
+lookupRule :: MkDef -> String -> IO (Maybe Target)
 lookupRule mk@(MkDef _ _ infs targets) name =
   lookupRule' $ Map.lookup name targets
   where
-    lookupRule' :: Maybe TgtDef -> IO (Maybe TgtDef)
+    lookupRule' :: Maybe TgtDef -> IO (Maybe Target)
     lookupRule' Nothing = infRule
     lookupRule' (Just t)
-      | null (getCmds' t) =
+      | null (getRawCmds t) =
           infRule <&> \case
-            Nothing -> Just t
+            Nothing -> Just (Target name t)
             -- mergeDef will never return Nothing as
             -- inference rules do not have any prerqs.
-            Just x -> mergeDef x t
-      | otherwise = pure $ Just t
+            Just x -> setDef x <$> mergeDef (getDef x) t
+      | otherwise = pure $ Just (Target name t)
 
-    infRule :: IO (Maybe TgtDef)
+    infRule :: IO (Maybe Target)
     infRule = doubleSuffix name (suffixes mk) infs
 
-doubleSuffix :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe TgtDef)
+doubleSuffix :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe Target)
 doubleSuffix _ [] _ = pure Nothing
 doubleSuffix name (ruleName : xs) infRules = do
   let (src, tgt) = getSuffixes ruleName
   let fnameNoExt = stripSuffix name
 
+  let tgtName = fnameNoExt ++ tgt
   let srcName = fnameNoExt ++ src
+
   srcExists <- doesPathExist srcName
   if tgt `isSuffixOf` name && srcExists
     then do
-      let cmds = getCmds' <$> Map.lookup ruleName infRules
-      pure (TgtDef [fnameNoExt ++ src] (Just srcName) <$> cmds)
+      let cmds = getRawCmds <$> Map.lookup ruleName infRules
+      -- XXX: Why srcName twice?!?!
+      pure (Inferred tgtName srcName <$> TgtDef [srcName] <$> cmds)
     else doubleSuffix name xs infRules
 
 -- A target that has prerequisites, but does not have any commands,
@@ -118,11 +120,9 @@ doubleSuffix name (ruleName : xs) infRules = do
 -- Returns nothing if the targets cannot be merged, i.e. if both
 -- targets define commands.
 mergeDef :: TgtDef -> TgtDef -> Maybe TgtDef
-mergeDef
-  TgtDef {getPreqs = p, getSrc = s, getCmds' = c}
-  TgtDef {getPreqs = p', getSrc = s', getCmds' = c'}
-    | null c || null c' = Just $ TgtDef (p ++ p') (s <|> s') (c ++ c')
-    | otherwise = Nothing
+mergeDef (TgtDef p c) (TgtDef p' c')
+  | null c || null c' = Just $ TgtDef (p ++ p') (c ++ c')
+  | otherwise = Nothing
 
 mergeDefs :: Map.Map String TgtDef -> Map.Map String TgtDef -> Maybe (Map.Map String TgtDef)
 mergeDefs old new =
@@ -136,19 +136,62 @@ mergeDefs old new =
 
 ------------------------------------------------------------------------
 
+-- | A 'TgtDef' initialized for a specific target. The target
+-- can either be build from a target rule or an inference rule.
+data Target
+  = -- | A target build from a target rule
+    Target
+      -- | The target name
+      FilePath
+      -- | The target definition
+      TgtDef
+  | -- | A target build from an inference rule
+    Inferred
+      -- | The target name
+      FilePath
+      -- | The source file name (`$<`)
+      FilePath
+      -- | The target definition
+      TgtDef
+  deriving (Show)
+
+-- | Obtain the target name.
+getName :: Target -> String
+getName (Target name _) = name
+getName (Inferred name _ _) = name
+
+-- | Obtain the target definition, see 'TgtDef'.
+getDef :: Target -> TgtDef
+getDef (Target _ def) = def
+getDef (Inferred _ _ def) = def
+
+-- | Create a new 'Target' where the encapsulated 'TgtDef' is changed.
+setDef :: Target -> TgtDef -> Target
+setDef (Target name _) newDef = Target name newDef
+setDef (Inferred name src _) newDef = Inferred name src newDef
+
+------------------------------------------------------------------------
+
 -- | Expanded commands of a target.
 newtype Cmds = Cmds [String]
 
-getCmds :: MkDef -> String -> TgtDef -> Cmds
-getCmds (MkDef env _ _ _) name target =
-  Cmds $ fmap (expand $ Map.union internalMacros env) (getCmds' target)
+getCmds :: MkDef -> Target -> Cmds
+getCmds (MkDef env _ _ _) target =
+  Cmds $ fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
   where
+    targetDef :: TgtDef
+    targetDef = getDef target
+
     internalMacros :: Env
     internalMacros =
       Map.fromList
-        [ ("^", T.AssignI $ unwords (getPreqs target)),
-          ("@", T.AssignI name),
-          ("<", T.AssignI $ fromMaybe "" (getSrc target))
+        [ ("^", T.AssignI $ unwords (getPreqs targetDef)),
+          ("@", T.AssignI $ getName target),
+          ( "<",
+            T.AssignI $ case target of
+              Target _ _ -> ""
+              Inferred _ src _ -> src
+          )
         ]
 
 runCmds :: Cmds -> IO ()
@@ -214,7 +257,7 @@ evalInclude def@(MkDef env _ _ _) elems =
 
 evalTgtRule :: Env -> T.TgtRule -> Map.Map String TgtDef
 evalTgtRule env (T.TgtRule tgts preqs cmds) =
-  let def = TgtDef (exLst preqs) Nothing cmds
+  let def = TgtDef (exLst preqs) cmds
    in Map.fromList $ map (\tgt -> (tgt, def)) (exLst tgts)
   where
     exLst = concatMap (words . expand env)
@@ -228,7 +271,7 @@ eval' (MkDef env fstTgt infs targets) ((T.MkAssign assign) : xs) =
 eval' def ((T.MkInclude elems) : xs) =
   evalInclude def elems >>= flip eval' xs
 eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
-  let def = TgtDef [] Nothing cmds
+  let def = TgtDef [] cmds
    in eval' (MkDef env fstTgt (Map.insert target def infs) targets) xs
 eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
   let newTgtDefs = evalTgtRule env rule

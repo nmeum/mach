@@ -2,8 +2,8 @@ module Main where
 
 import Control.Exception (throwIO)
 import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
-import Mach.Eval (MkDef, eval, firstTarget)
-import Mach.Exec (lookupTarget, maybeBuild)
+import Mach.Eval (MkDef, eval, firstTarget, lookupRule)
+import Mach.Exec (maybeBuild)
 import Mach.Parser (parseMkFile)
 import Mach.Types (MkFile)
 import Paths_mach (getDataFileName)
@@ -51,14 +51,14 @@ runMk builtins my_targets path = do
       then (: []) <$> firstTarget' mk
       else pure my_targets
 
-  mapM (lookupTarget' mk) targets >>= mapM_ (maybeBuild mk)
+  mapM (lookupRule' mk) targets >>= mapM_ (maybeBuild mk)
   where
     firstTarget' mk = case firstTarget mk of
       Nothing -> throwIO $ TargetErr ZeroTargetsDefined
       Just tg -> pure tg
 
-    lookupTarget' mk t = do
-      tgt <- lookupTarget mk t
+    lookupRule' mk t = do
+      tgt <- lookupRule mk t
       case tgt of
         Nothing -> throwIO $ TargetErr (NoSuchTarget t)
         Just tg -> pure tg
