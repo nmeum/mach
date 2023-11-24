@@ -16,7 +16,12 @@ CFLAGS = -O1
 # Single Suffix Rules
 ##
 
-# To-Do
+.c:
+	$(CC) $(CFLAGS) $(LDFLAGS) -o $@ $<
+
+.sh:
+	cp $< $@
+	chmod a+x $@
 
 ##
 # Double Suffix Rules
