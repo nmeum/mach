@@ -67,15 +67,12 @@ firstTarget (MkDef _ fstTarget _ _) = fstTarget
 suffixes :: MkDef -> [String]
 suffixes (MkDef _ _ infs _) = Map.keys infs
 
--- | TODO
 stripSuffix :: String -> String
-stripSuffix = fst . getSuffixes
-
--- For a string of the form `.s2.s1` return `(".s2", ".s1")`.
---
--- TODO: Ensure that the string only contains two period characters.
-getSuffixes :: String -> (String, String)
-getSuffixes str = splitAt (last $ elemIndices '.' str) str
+stripSuffix name =
+  let indices = elemIndices '.' name
+   in if null indices
+        then name
+        else fst $ splitAt (last indices) name
 
 -- | Lookup a target definition, the definition may be inferred.
 --
@@ -96,24 +93,30 @@ lookupRule mk@(MkDef _ _ infs targets) name =
       | otherwise = pure $ Just (Target name t)
 
     infRule :: IO (Maybe Target)
-    infRule = doubleSuffix name (suffixes mk) infs
+    infRule = suffixLookup name (suffixes mk) infs
 
-doubleSuffix :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe Target)
-doubleSuffix _ [] _ = pure Nothing
-doubleSuffix name (ruleName : xs) infRules = do
-  let (src, tgt) = getSuffixes ruleName
-  let fnameNoExt = stripSuffix name
-
-  let tgtName = fnameNoExt ++ tgt
-  let srcName = fnameNoExt ++ src
-
-  srcExists <- doesPathExist srcName
-  if tgt `isSuffixOf` name && srcExists
-    then do
-      let cmds = getRawCmds <$> Map.lookup ruleName infRules
-      -- XXX: Why srcName twice?!?!
-      pure (Inferred tgtName srcName <$> TgtDef [srcName] <$> cmds)
-    else doubleSuffix name xs infRules
+suffixLookup :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe Target)
+suffixLookup _ [] _ = pure Nothing
+suffixLookup name (ruleName : xs) infRules =
+  let indices = elemIndices '.' ruleName
+   in case length indices of
+        -- single suffix rule
+        1 -> suffixLookup' True name (name ++ ruleName)
+        -- double suffix rule
+        2 ->
+          let (src, tgt) = splitAt (last indices) ruleName
+              noExt = stripSuffix name
+           in suffixLookup' (tgt `isSuffixOf` name) (noExt ++ tgt) (noExt ++ src)
+        _ -> error "unreachable" -- TODO: make this actually unreachable
+  where
+    suffixLookup' :: Bool -> FilePath -> FilePath -> IO (Maybe Target)
+    suffixLookup' extraCheck tgtName srcName = do
+      srcExists <- doesPathExist srcName
+      if srcExists && extraCheck
+        then do
+          let cmds = getRawCmds <$> Map.lookup ruleName infRules
+          pure (Inferred tgtName srcName <$> TgtDef [srcName] <$> cmds)
+        else suffixLookup name xs infRules
 
 -- A target that has prerequisites, but does not have any commands,
 -- can be used to add to the prerequisite list for that target.

@@ -18,7 +18,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
     * [x] Parser support
     * [x] Handling of ".s2.s1" inference rules
     * [ ] Respect and use `.SUFFIXES" (see *special targets* below)
-    * [ ] Handling of ".s1" inference rules
+    * [x] Handling of ".s1" inference rules
     * [ ] Tests
 * [x] Support for command prefixes (`-`, `@`, `+`)
     * [x] Preliminary support for `@` and `-`
