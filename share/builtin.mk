@@ -5,10 +5,10 @@
 AR = ar
 ARFLAGS = -rv
 YACC = yacc
-#YFLAGS =
+YFLAGS = 
 LEX = lex
-#LFLAGS =
-#LDFLAGS =
+LFLAGS = 
+LDFLAGS = 
 CC = cc # TODO: use cc17 here
 CFLAGS = -O1
 
