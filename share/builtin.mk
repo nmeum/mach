@@ -1,4 +1,10 @@
 ##
+# Special Targets
+##
+
+.SUFFIXES: .o .c .y .l .a .sh
+
+##
 # Macros
 ##
 

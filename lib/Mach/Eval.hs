@@ -50,7 +50,7 @@ data MkDef
       -- | First "normal" target defined in the Makefile.
       (Maybe String)
       -- | Inference rules defined in this Makefile.
-      (Map.Map String TgtDef)
+      [(String, TgtDef)]
       -- | TgtDefs defined in this Makefile.
       (Map.Map String TgtDef)
   deriving (Show)
@@ -62,24 +62,22 @@ firstTarget :: MkDef -> Maybe String
 firstTarget (MkDef _ fstTarget _ _) = fstTarget
 
 -- | Return all suffixes.
---
--- TODO: Use .SUFFIXES for this purpose.
 suffixes :: MkDef -> [String]
-suffixes (MkDef _ _ infs _) = Map.keys infs
+suffixes (MkDef _ _ _ targets) =
+  maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
 stripSuffix :: String -> String
 stripSuffix name =
   let indices = elemIndices '.' name
    in if null indices
         then name
-        else fst $ splitAt (last indices) name
+        else take (last indices) name
 
 -- | Lookup a target definition, the definition may be inferred.
 --
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe Target)
-lookupRule mk@(MkDef _ _ infs targets) name =
-  lookupRule' $ Map.lookup name targets
+lookupRule mk@(MkDef _ _ infs targets) name = lookupRule' $ Map.lookup name targets
   where
     lookupRule' :: Maybe TgtDef -> IO (Maybe Target)
     lookupRule' Nothing = infRule
@@ -95,28 +93,48 @@ lookupRule mk@(MkDef _ _ infs targets) name =
     infRule :: IO (Maybe Target)
     infRule = suffixLookup name (suffixes mk) infs
 
-suffixLookup :: String -> [String] -> Map.Map String TgtDef -> IO (Maybe Target)
+-- Inspired by https://hackage.haskell.org/package/extra-1.7.14/docs/Control-Monad-Extra.html#v:firstJustM
+firstJustM :: (Monad m) => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
+firstJustM _ [] = pure Nothing
+firstJustM p (x : xs) = do
+  p x >>= \case
+    Just y -> pure $ Just y
+    Nothing -> firstJustM p xs
+
+suffixLookup :: String -> [String] -> [(String, TgtDef)] -> IO (Maybe Target)
 suffixLookup _ [] _ = pure Nothing
-suffixLookup name (ruleName : xs) infRules =
-  let indices = elemIndices '.' ruleName
-   in case length indices of
-        -- single suffix rule
-        1 -> suffixLookup' True name (name ++ ruleName)
-        -- double suffix rule
-        2 ->
-          let (src, tgt) = splitAt (last indices) ruleName
-              noExt = stripSuffix name
-           in suffixLookup' (tgt `isSuffixOf` name) (noExt ++ tgt) (noExt ++ src)
-        _ -> error "unreachable" -- TODO: make this actually unreachable
+suffixLookup name (suffix : xs) infRules = do
+  target <-
+    if '.' `elem` name
+      then firstJustM (lookupDouble name) (filter (\(x, _) -> (length (elemIndices '.' x) == 2)) infRules)
+      else firstJustM (lookupSingle name) (filter (\(x, _) -> (length (elemIndices '.' x) == 1)) infRules)
+
+  case target of
+    Nothing -> suffixLookup name xs infRules
+    result -> pure result
   where
-    suffixLookup' :: Bool -> FilePath -> FilePath -> IO (Maybe Target)
-    suffixLookup' extraCheck tgtName srcName = do
+    maybeTarget :: TgtDef -> FilePath -> FilePath -> IO (Maybe Target)
+    maybeTarget tgtDef tgtName srcName = do
       srcExists <- doesPathExist srcName
-      if srcExists && extraCheck
-        then do
-          let cmds = getRawCmds <$> Map.lookup ruleName infRules
-          pure (Inferred tgtName srcName <$> TgtDef [srcName] <$> cmds)
-        else suffixLookup name xs infRules
+      pure $
+        if srcExists
+          then Just $ Inferred tgtName srcName (TgtDef [srcName] $ getRawCmds tgtDef)
+          else Nothing
+
+    lookupSingle :: String -> (String, TgtDef) -> IO (Maybe Target)
+    lookupSingle tgtName (ruleName, tgtDef) =
+      if ruleName == suffix
+        then maybeTarget tgtDef tgtName (tgtName ++ suffix)
+        else pure Nothing
+
+    lookupDouble :: String -> (String, TgtDef) -> IO (Maybe Target)
+    lookupDouble tgtName (ruleName, tgtDef) =
+      let indices = elemIndices '.' ruleName
+          baseName = stripSuffix tgtName
+          (src, tgt) = splitAt (last indices) ruleName
+       in if suffix `isSuffixOf` name && suffix `isSuffixOf` ruleName
+            then maybeTarget tgtDef (baseName ++ tgt) (baseName ++ src)
+            else pure Nothing
 
 -- A target that has prerequisites, but does not have any commands,
 -- can be used to add to the prerequisite list for that target.
@@ -275,13 +293,22 @@ eval' def ((T.MkInclude elems) : xs) =
   evalInclude def elems >>= flip eval' xs
 eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
   let def = TgtDef [] cmds
-   in eval' (MkDef env fstTgt (Map.insert target def infs) targets) xs
+   in eval' (MkDef env fstTgt ((target, def) : infs) targets) xs
 eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
   let newTgtDefs = evalTgtRule env rule
-      initTgtDef = head $ Map.keys newTgtDefs
+      newTargets = Map.keys newTgtDefs
+      initTgtDef =
+        if isSpecial (head newTargets)
+          then Nothing
+          else Just (head newTargets)
    in case mergeDefs targets newTgtDefs of
         Nothing -> throwIO $ TargetErr MultipleDefines
-        Just nt -> eval' (MkDef env (fstTgt <|> Just initTgtDef) infs nt) xs
+        Just nt -> eval' (MkDef env (fstTgt <|> initTgtDef) infs nt) xs
+  where
+    -- Returns true if the target name is a special target.
+    isSpecial :: String -> Bool
+    isSpecial ('.' : _) = True
+    isSpecial _ = False
 
 eval :: T.MkFile -> IO MkDef
-eval = eval' (MkDef Map.empty Nothing Map.empty Map.empty)
+eval = eval' (MkDef Map.empty Nothing [] Map.empty)
