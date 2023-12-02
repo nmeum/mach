@@ -17,7 +17,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for inference rules
     * [x] Parser support
     * [x] Handling of ".s2.s1" inference rules
-    * [ ] Respect and use `.SUFFIXES" (see *special targets* below)
+    * [x] Respect and use `.SUFFIXES" (see *special targets* below)
     * [x] Handling of ".s1" inference rules
     * [ ] Tests
 * [x] Support for command prefixes (`-`, `@`, `+`)
@@ -32,7 +32,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for special targets (e.g. `.PHONY`)
 * [ ] Support for internal macros (e.g. `$@`, `$%`, …)
 * [ ] Support for specifying assignments on the command-line
-* [ ] Support for default rules (e.g. for C compilation)
+* [x] Support for default rules (e.g. for C compilation)
 * [ ] Support for environment variables (e.g. `MAKEFLAGS`)
 * [ ] Support for libraries (prerequisites with parentheses)
 
