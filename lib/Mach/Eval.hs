@@ -26,7 +26,7 @@ import Data.Maybe (fromMaybe)
 import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
-import Mach.Util (firstJustM, stripSuffix)
+import Mach.Util (firstJustM, isSpecial, stripSuffix)
 import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
@@ -292,11 +292,6 @@ eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkTgtRule rule) : xs) =
    in case mergeDefs targets newTgtDefs of
         Nothing -> throwIO $ TargetErr MultipleDefines
         Just nt -> eval' (MkDef env (fstTgt <|> initTgtDef) inf1 inf2 nt) xs
-  where
-    -- Returns true if the target name is a special target.
-    isSpecial :: String -> Bool
-    isSpecial ('.' : _) = True
-    isSpecial _ = False
 
 eval :: T.MkFile -> IO MkDef
 eval = eval' (MkDef Map.empty Nothing [] [] Map.empty)

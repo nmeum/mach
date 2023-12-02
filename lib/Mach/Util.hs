@@ -23,3 +23,20 @@ firstJustM p (x : xs) = do
   p x >>= \case
     Just y -> pure $ Just y
     Nothing -> firstJustM p xs
+
+-- Returns true if the target name is a special target.
+isSpecial :: String -> Bool
+isSpecial = flip elem special
+  where
+    special :: [String]
+    special =
+      [ ".DEFAULT",
+        ".IGNORE",
+        ".PHONY",
+        ".NOTPARALLEL",
+        ".POSIX",
+        ".PRECIOUS",
+        ".SILENT",
+        ".SUFFIXES",
+        ".WAIT"
+      ]
