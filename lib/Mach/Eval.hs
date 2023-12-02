@@ -49,7 +49,9 @@ data MkDef
       Env
       -- | First "normal" target defined in the Makefile.
       (Maybe String)
-      -- | Inference rules defined in this Makefile.
+      -- | Single suffix inference rules.
+      [(String, TgtDef)]
+      -- | Double suffix inference rules.
       [(String, TgtDef)]
       -- | TgtDefs defined in this Makefile.
       (Map.Map String TgtDef)
@@ -59,11 +61,11 @@ data MkDef
 -- target or an inference rule. 'Nothing' if the Makefile defines no
 -- target rules.
 firstTarget :: MkDef -> Maybe String
-firstTarget (MkDef _ fstTarget _ _) = fstTarget
+firstTarget (MkDef _ fstTarget _ _ _) = fstTarget
 
 -- | Return all suffixes.
 suffixes :: MkDef -> [String]
-suffixes (MkDef _ _ _ targets) =
+suffixes (MkDef _ _ _ _ targets) =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
 stripSuffix :: String -> String
@@ -77,7 +79,7 @@ stripSuffix name =
 --
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe Target)
-lookupRule mk@(MkDef _ _ infs targets) name = lookupRule' $ Map.lookup name targets
+lookupRule mk@(MkDef _ _ inf1 inf2 targets) name = lookupRule' $ Map.lookup name targets
   where
     lookupRule' :: Maybe TgtDef -> IO (Maybe Target)
     lookupRule' Nothing = infRule
@@ -91,7 +93,7 @@ lookupRule mk@(MkDef _ _ infs targets) name = lookupRule' $ Map.lookup name targ
       | otherwise = pure $ Just (Target name t)
 
     infRule :: IO (Maybe Target)
-    infRule = suffixLookup name (suffixes mk) infs
+    infRule = suffixLookup name (suffixes mk) inf1 inf2
 
 -- Inspired by https://hackage.haskell.org/package/extra-1.7.14/docs/Control-Monad-Extra.html#v:firstJustM
 firstJustM :: (Monad m) => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
@@ -101,16 +103,16 @@ firstJustM p (x : xs) = do
     Just y -> pure $ Just y
     Nothing -> firstJustM p xs
 
-suffixLookup :: String -> [String] -> [(String, TgtDef)] -> IO (Maybe Target)
-suffixLookup _ [] _ = pure Nothing
-suffixLookup name (suffix : xs) infRules = do
+suffixLookup :: String -> [String] -> [(String, TgtDef)] -> [(String, TgtDef)] -> IO (Maybe Target)
+suffixLookup _ [] _ _ = pure Nothing
+suffixLookup name (suffix : xs) inf1 inf2 = do
   target <-
     if '.' `elem` name
-      then firstJustM (lookupDouble name) (filter (\(x, _) -> (length (elemIndices '.' x) == 2)) infRules)
-      else firstJustM (lookupSingle name) (filter (\(x, _) -> (length (elemIndices '.' x) == 1)) infRules)
+      then firstJustM (lookupDouble name) inf2
+      else firstJustM (lookupSingle name) inf1
 
   case target of
-    Nothing -> suffixLookup name xs infRules
+    Nothing -> suffixLookup name xs inf1 inf2
     result -> pure result
   where
     maybeTarget :: TgtDef -> FilePath -> FilePath -> IO (Maybe Target)
@@ -197,7 +199,7 @@ setDef (Inferred name src _) newDef = Inferred name src newDef
 newtype Cmds = Cmds [String]
 
 getCmds :: MkDef -> Target -> Cmds
-getCmds (MkDef env _ _ _) target =
+getCmds (MkDef env _ _ _ _) target =
   Cmds $ fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
   where
     targetDef :: TgtDef
@@ -267,7 +269,7 @@ evalAssign env (T.Assign name ty val) =
     T.Append -> error "unsupported"
 
 evalInclude :: MkDef -> [T.Token] -> IO MkDef
-evalInclude def@(MkDef env _ _ _) elems =
+evalInclude def@(MkDef env _ _ _ _) elems =
   foldM
     ( \mkDef path -> do
         mk <- parseMkFile path
@@ -285,16 +287,21 @@ evalTgtRule env (T.TgtRule tgts preqs cmds) =
 
 eval' :: MkDef -> T.MkFile -> IO MkDef
 eval' def [] = pure def
-eval' (MkDef env fstTgt infs targets) ((T.MkAssign assign) : xs) =
+eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkAssign assign) : xs) =
   let (key, val) = evalAssign env assign
       newEnviron = Map.insert key val env
-   in eval' (MkDef newEnviron fstTgt infs targets) xs
+   in eval' (MkDef newEnviron fstTgt inf1 inf2 targets) xs
 eval' def ((T.MkInclude elems) : xs) =
   evalInclude def elems >>= flip eval' xs
-eval' (MkDef env fstTgt infs targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
-  let def = TgtDef [] cmds
-   in eval' (MkDef env fstTgt ((target, def) : infs) targets) xs
-eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
+eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkInfRule (T.InfRule target cmds)) : xs) =
+  let tdef = TgtDef [] cmds
+      (inf1', inf2') =
+        case length $ elemIndices '.' target of
+          1 -> ((target, tdef) : inf1, inf2)
+          2 -> (inf1, (target, tdef) : inf2)
+          _ -> error "invalid inference rule" -- TODO
+   in eval' (MkDef env fstTgt inf1' inf2' targets) xs
+eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkTgtRule rule) : xs) =
   let newTgtDefs = evalTgtRule env rule
       newTargets = Map.keys newTgtDefs
       initTgtDef =
@@ -303,7 +310,7 @@ eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
           else Just (head newTargets)
    in case mergeDefs targets newTgtDefs of
         Nothing -> throwIO $ TargetErr MultipleDefines
-        Just nt -> eval' (MkDef env (fstTgt <|> initTgtDef) infs nt) xs
+        Just nt -> eval' (MkDef env (fstTgt <|> initTgtDef) inf1 inf2 nt) xs
   where
     -- Returns true if the target name is a special target.
     isSpecial :: String -> Bool
@@ -311,4 +318,4 @@ eval' (MkDef env fstTgt infs targets) ((T.MkTgtRule rule) : xs) =
     isSpecial _ = False
 
 eval :: T.MkFile -> IO MkDef
-eval = eval' (MkDef Map.empty Nothing [] Map.empty)
+eval = eval' (MkDef Map.empty Nothing [] [] Map.empty)
