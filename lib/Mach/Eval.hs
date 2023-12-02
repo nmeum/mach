@@ -247,7 +247,11 @@ evalAssign env (T.Assign name ty val) =
     T.StrictDelay -> error "unsupported"
     T.System -> error "unsupported"
     T.Cond -> (name, fromMaybe (T.AssignD val) $ Map.lookup name env)
-    T.Append -> error "unsupported"
+    T.Append -> (name, maybe (T.AssignD val) appendAssign $ Map.lookup name env)
+  where
+    appendAssign :: T.MacroAssign -> T.MacroAssign
+    appendAssign (T.AssignI str) = T.AssignI $ str ++ " " ++ expand env val
+    appendAssign (T.AssignD tok) = T.AssignD $ T.Seq [tok, T.Lit " ", val]
 
 evalInclude :: MkDef -> [T.Token] -> IO MkDef
 evalInclude def@MkDef {assigns = env} elems =
