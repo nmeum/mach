@@ -26,6 +26,7 @@ import Data.Maybe (fromMaybe)
 import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
+import Mach.Util (firstJustM, stripSuffix)
 import System.Directory (doesPathExist)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
@@ -62,13 +63,6 @@ suffixes :: MkDef -> [String]
 suffixes MkDef {targetDefs = targets} =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
-stripSuffix :: String -> String
-stripSuffix name =
-  let indices = elemIndices '.' name
-   in if null indices
-        then name
-        else take (last indices) name
-
 -- | Lookup a target definition, the definition may be inferred.
 --
 -- TODO: Refactor this
@@ -89,14 +83,6 @@ lookupRule mk@MkDef {singleSuffix = inf1, doubleSuffix = inf2, targetDefs = targ
 
     infRule :: IO (Maybe Target)
     infRule = suffixLookup name (suffixes mk) inf1 inf2
-
--- Inspired by https://hackage.haskell.org/package/extra-1.7.14/docs/Control-Monad-Extra.html#v:firstJustM
-firstJustM :: (Monad m) => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
-firstJustM _ [] = pure Nothing
-firstJustM p (x : xs) = do
-  p x >>= \case
-    Just y -> pure $ Just y
-    Nothing -> firstJustM p xs
 
 suffixLookup :: String -> [String] -> [(String, TgtDef)] -> [(String, TgtDef)] -> IO (Maybe Target)
 suffixLookup _ [] _ _ = pure Nothing
