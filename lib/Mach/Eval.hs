@@ -43,29 +43,23 @@ data TgtDef = TgtDef
   deriving (Show)
 
 -- | Expanded makefile definition.
-data MkDef
-  = MkDef
-      -- | Macros defined in this Makefile.
-      Env
-      -- | First "normal" target defined in the Makefile.
-      (Maybe String)
-      -- | Single suffix inference rules.
-      [(String, TgtDef)]
-      -- | Double suffix inference rules.
-      [(String, TgtDef)]
-      -- | TgtDefs defined in this Makefile.
-      (Map.Map String TgtDef)
+data MkDef = MkDef
+  { -- | Macros defined in this Makefile.
+    assigns :: Env,
+    -- | First "normal" target defined in the Makefile.
+    firstTarget :: Maybe String,
+    -- | Single suffix inference rules.
+    singleSuffix :: [(String, TgtDef)],
+    -- | Double suffix inference rules.
+    doubleSuffix :: [(String, TgtDef)],
+    -- | TgtDefs defined in this Makefile.
+    targetDefs :: Map.Map String TgtDef
+  }
   deriving (Show)
-
--- | Obtain the name of the first defined target that is not a special
--- target or an inference rule. 'Nothing' if the Makefile defines no
--- target rules.
-firstTarget :: MkDef -> Maybe String
-firstTarget (MkDef _ fstTarget _ _ _) = fstTarget
 
 -- | Return all suffixes.
 suffixes :: MkDef -> [String]
-suffixes (MkDef _ _ _ _ targets) =
+suffixes MkDef {targetDefs = targets} =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
 stripSuffix :: String -> String
@@ -79,7 +73,8 @@ stripSuffix name =
 --
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe Target)
-lookupRule mk@(MkDef _ _ inf1 inf2 targets) name = lookupRule' $ Map.lookup name targets
+lookupRule mk@MkDef {singleSuffix = inf1, doubleSuffix = inf2, targetDefs = targets} name =
+  lookupRule' $ Map.lookup name targets
   where
     lookupRule' :: Maybe TgtDef -> IO (Maybe Target)
     lookupRule' Nothing = infRule
@@ -199,7 +194,7 @@ setDef (Inferred name src _) newDef = Inferred name src newDef
 newtype Cmds = Cmds [String]
 
 getCmds :: MkDef -> Target -> Cmds
-getCmds (MkDef env _ _ _ _) target =
+getCmds MkDef {assigns = env} target =
   Cmds $ fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
   where
     targetDef :: TgtDef
@@ -269,7 +264,7 @@ evalAssign env (T.Assign name ty val) =
     T.Append -> error "unsupported"
 
 evalInclude :: MkDef -> [T.Token] -> IO MkDef
-evalInclude def@(MkDef env _ _ _ _) elems =
+evalInclude def@MkDef {assigns = env} elems =
   foldM
     ( \mkDef path -> do
         mk <- parseMkFile path
