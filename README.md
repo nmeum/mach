@@ -11,7 +11,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
 * [ ] Support for command-line options mandated by POSIX
     * [x] Basic integration with `System.Console.GetOpt`
     * [x] Support for specifying targets on the command-line
-    * [ ] Support for specifying assignments on the command-line
+    * [x] Support for specifying assignments on the command-line
     * [x] Support for the `-f` flag
     * [ ] Support for all other flags
 * [ ] Support for inference rules
@@ -31,7 +31,6 @@ Proof of concept, currently largely untested, buggy, and incomplete.
     * [ ] Support for nested expansions in `string1`
 * [ ] Support for special targets (e.g. `.PHONY`)
 * [ ] Support for internal macros (e.g. `$@`, `$%`, …)
-* [x] Support for specifying assignments on the command-line
 * [x] Support for default rules (e.g. for C compilation)
 * [ ] Support for environment variables (e.g. `MAKEFLAGS`)
 * [ ] Support for libraries (prerequisites with parentheses)
