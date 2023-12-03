@@ -195,7 +195,8 @@ getCmds MkDef {assigns = env} target =
             T.AssignI $ case target of
               Target _ _ -> ""
               Inferred _ src _ -> src
-          )
+          ),
+          ("*", T.AssignI $ stripSuffix (getName target))
         ]
 
 runCmds :: Cmds -> IO ()
