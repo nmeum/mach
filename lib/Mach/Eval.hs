@@ -67,7 +67,7 @@ suffixes MkDef {targetDefs = targets} =
 --
 -- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe Target)
-lookupRule mk@MkDef {singleSuffix = inf1, doubleSuffix = inf2, targetDefs = targets} name =
+lookupRule mk@MkDef {targetDefs = targets} name =
   lookupRule' $ Map.lookup name targets
   where
     lookupRule' :: Maybe TgtDef -> IO (Maybe Target)
@@ -82,18 +82,18 @@ lookupRule mk@MkDef {singleSuffix = inf1, doubleSuffix = inf2, targetDefs = targ
       | otherwise = pure $ Just (Target name t)
 
     infRule :: IO (Maybe Target)
-    infRule = suffixLookup name (suffixes mk) inf1 inf2
+    infRule = suffixLookup mk name (suffixes mk)
 
-suffixLookup :: String -> [String] -> [(String, TgtDef)] -> [(String, TgtDef)] -> IO (Maybe Target)
-suffixLookup _ [] _ _ = pure Nothing
-suffixLookup name (suffix : xs) inf1 inf2 = do
+suffixLookup :: MkDef -> String -> [String] -> IO (Maybe Target)
+suffixLookup _ _ [] = pure Nothing
+suffixLookup mk@MkDef {singleSuffix = inf1, doubleSuffix = inf2} name (suffix : xs) = do
   target <-
     if '.' `elem` name
       then firstJustM (lookupDouble name) inf2
       else firstJustM (lookupSingle name) inf1
 
   case target of
-    Nothing -> suffixLookup name xs inf1 inf2
+    Nothing -> suffixLookup mk name xs
     result -> pure result
   where
     maybeTarget :: TgtDef -> FilePath -> FilePath -> IO (Maybe Target)
