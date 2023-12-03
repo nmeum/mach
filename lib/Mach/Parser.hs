@@ -76,7 +76,7 @@ targetChar = alphaNum <|> oneOf "/-._"
 assignOp :: Parser T.Flavor
 assignOp =
   bind "=" T.Delayed
-    <|> bind ":=" T.Immediate
+    <|> bind "::=" T.Immediate
     <|> bind ":::=" T.StrictDelay
     <|> bind "!=" T.System
     <|> bind "?=" T.Cond

@@ -28,7 +28,7 @@ assignTests =
          in parse "m_exp = ${BAR}" @?= assign "m_exp" T.Delayed rvalue,
       testCase "Nested macro expansion" $
         let rvalue = T.Seq [T.Exp $ T.Exp (T.Lit "FOO_BAR")]
-         in parse "nested := ${${FOO_BAR}}" @?= assign "nested" T.Immediate rvalue,
+         in parse "nested ::= ${${FOO_BAR}}" @?= assign "nested" T.Immediate rvalue,
       testCase "Multi-token assignment" $
         let rvalue = T.Seq [T.Lit "a", T.Exp (T.Lit "b"), T.Lit "c"]
          in parse "_ ?= a${b}c" @?= assign "_" T.Cond rvalue,
