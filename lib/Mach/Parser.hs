@@ -2,7 +2,8 @@
 module Mach.Parser where
 
 import Control.Exception (throwIO)
-import Control.Monad (void)
+import Control.Monad (unless, void)
+import Data.List (elemIndices)
 import Mach.Error (MakeErr (..))
 import qualified Mach.Types as T
 import Text.ParserCombinators.Parsec
@@ -26,6 +27,7 @@ import Text.ParserCombinators.Parsec
     skipMany,
     string,
     try,
+    unexpected,
     (<|>),
   )
 
@@ -160,6 +162,11 @@ commands = many (char '\t' >> (tokens <* newline))
 infRule :: Parser T.InfRule
 infRule = do
   target <- char '.' >> (:) '.' <$> many1 targetChar
+
+  let periods = length $ elemIndices '.' target
+  unless (periods >= 1 && periods <= 2) $
+    unexpected "invalid inference rule target name"
+
   cmds <-
     char ':'
       >> ( (const [] <$> (many1 blank >> char ';'))

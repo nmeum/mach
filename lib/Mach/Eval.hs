@@ -284,7 +284,7 @@ eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkInfRule (T.InfRule target cmds)
         case length $ elemIndices '.' target of
           1 -> ((target, tdef) : inf1, inf2)
           2 -> (inf1, (target, tdef) : inf2)
-          _ -> error "invalid inference rule" -- TODO
+          _ -> error "unreachable"
    in eval' (MkDef env fstTgt inf1' inf2' targets) xs
 eval' (MkDef env fstTgt inf1 inf2 targets) ((T.MkTgtRule rule) : xs) =
   let newTgtDefs = evalTgtRule env rule
