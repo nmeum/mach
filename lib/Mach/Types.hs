@@ -51,7 +51,7 @@ data Flavor
 
 instance Show Flavor where
   show Delayed = "="
-  show Immediate = ":="
+  show Immediate = "::="
   show StrictDelay = ":::="
   show System = "!="
   show Cond = "?="
