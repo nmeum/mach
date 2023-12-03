@@ -235,6 +235,9 @@ cmdLine str =
     assign' = do
       mident <- macroName
       flavor <- assignOp
+      unless (flavor `elem` [T.Delayed, T.Immediate, T.StrictDelay]) $
+        unexpected "invalid assignment flavor"
+
       T.Assign mident flavor <$> (T.Seq <$> many (tokenLit $ literal " "))
 
     cmdLine' :: Parser ([T.Assign], [FilePath])
