@@ -31,7 +31,7 @@ Proof of concept, currently largely untested, buggy, and incomplete.
     * [ ] Support for nested expansions in `string1`
 * [ ] Support for special targets (e.g. `.PHONY`)
 * [ ] Support for internal macros (e.g. `$@`, `$%`, …)
-* [ ] Support for specifying assignments on the command-line
+* [x] Support for specifying assignments on the command-line
 * [x] Support for default rules (e.g. for C compilation)
 * [ ] Support for environment variables (e.g. `MAKEFLAGS`)
 * [ ] Support for libraries (prerequisites with parentheses)

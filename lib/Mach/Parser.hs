@@ -21,6 +21,7 @@ import Text.ParserCombinators.Parsec
     noneOf,
     oneOf,
     optionMaybe,
+    parse,
     parseFromFile,
     sepBy,
     sepBy1,
@@ -222,6 +223,25 @@ mkFile =
       <* lexeme eof
 
 ------------------------------------------------------------------------
+
+-- | Parse assignments and targets specified on the command-line.
+cmdLine :: String -> IO ([T.Assign], [FilePath])
+cmdLine str =
+  case parse cmdLine' "command-line" str of
+    Left err -> throwIO $ ParserErr err
+    Right mk -> pure mk
+  where
+    assign' :: Parser T.Assign
+    assign' = do
+      mident <- macroName
+      flavor <- assignOp
+      T.Assign mident flavor <$> (T.Seq <$> many (tokenLit $ literal " "))
+
+    cmdLine' :: Parser ([T.Assign], [FilePath])
+    cmdLine' = do
+      assigns <- many (try assign' <* many blank)
+      targets <- sepBy (many1 targetChar) blank
+      pure (assigns, targets)
 
 parseMkFile :: FilePath -> IO T.MkFile
 parseMkFile path = do
