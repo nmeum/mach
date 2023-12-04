@@ -3,6 +3,8 @@
 module Mach.Util where
 
 import Data.List (elemIndices)
+import qualified Mach.Types as T
+import System.Environment (getEnvironment)
 
 -- Strip a file name extension (suffix) from a file name.
 stripSuffix :: FilePath -> String
@@ -40,3 +42,12 @@ isSpecial = flip elem special
         ".SUFFIXES",
         ".WAIT"
       ]
+
+-- Returns environment variables as macro assignments.
+getEnvMarcos :: IO T.MkFile
+getEnvMarcos = do
+  env <- filter ((not . flip elem excluded) . fst) <$> getEnvironment
+  pure $ map (\(k, v) -> T.MkAssign $ T.Assign k T.Immediate (T.Lit v)) env
+  where
+    excluded :: [String]
+    excluded = ["SHELL", "MAKEFLAGS"]
