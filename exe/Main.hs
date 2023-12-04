@@ -5,7 +5,7 @@ import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget, lookupRule)
 import Mach.Exec (maybeBuild)
 import Mach.Parser (cmdLine, parseMkFile)
-import Mach.Types (MkFile, MkStat (MkAssign))
+import Mach.Types (MkFile)
 import Mach.Util (getEnvMarcos)
 import Paths_mach (getDataFileName)
 import System.Console.GetOpt
@@ -70,12 +70,12 @@ main = do
   (vars, targets) <- cmdLine $ unwords remain
 
   (_flagsEnv, remainEnv) <- getEnv "MAKEFLAGS" >>= makeOpts . words
-  (macrosEnv, _) <- cmdLine $ unwords remainEnv
+  (envMacros, _) <- cmdLine $ unwords remainEnv
 
   environs <- getEnvMarcos
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
-  let extra = builtins ++ (map MkAssign vars) ++ (map MkAssign macrosEnv) ++ environs
+  let extra = builtins ++ vars ++ envMacros ++ environs
   mapM_ (runMk extra targets) $
     case [f | Makefile f <- flags] of
       [] -> ["Makefile"]

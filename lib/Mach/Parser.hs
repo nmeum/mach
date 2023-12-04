@@ -225,7 +225,7 @@ mkFile =
 ------------------------------------------------------------------------
 
 -- | Parse assignments and targets specified on the command-line.
-cmdLine :: String -> IO ([T.Assign], [FilePath])
+cmdLine :: String -> IO (T.MkFile, [FilePath])
 cmdLine str =
   case parse cmdLine' "command-line" str of
     Left err -> throwIO $ ParserErr err
@@ -240,11 +240,11 @@ cmdLine str =
 
       T.Assign mident flavor <$> (T.Seq <$> many (tokenLit $ literal " "))
 
-    cmdLine' :: Parser ([T.Assign], [FilePath])
+    cmdLine' :: Parser (T.MkFile, [FilePath])
     cmdLine' = do
       assigns <- many (try assign' <* many blank)
       targets <- sepBy (many1 targetChar) blank
-      pure (assigns, targets)
+      pure (map T.MkAssign assigns, targets)
 
 parseMkFile :: FilePath -> IO T.MkFile
 parseMkFile path = do
