@@ -20,12 +20,14 @@ import System.Environment (getArgs, getEnv)
 data Flag
   = EnvOverwrite
   | Makefile String
+  | Jobs String
   deriving (Show)
 
 options :: [OptDescr Flag]
 options =
   [ Option ['f'] [] (ReqArg Makefile "makefile") "Specify a different makefile",
-    Option ['e'] [] (NoArg EnvOverwrite) "Overwrite macro assignments with environment variables"
+    Option ['e'] [] (NoArg EnvOverwrite) "Overwrite macro assignments with environment variables",
+    Option ['j'] [] (ReqArg Jobs "jobs") "Allow given amount of execution jobs at once"
   ]
 
 makeOpts :: [String] -> IO ([Flag], [String])
@@ -34,7 +36,7 @@ makeOpts argv =
     (o, n, []) -> return (o, n)
     (_, _, errs) -> ioError (userError (concat errs ++ usageInfo header options))
   where
-    header = "Usage: mach [-f makefile] [target_name...]"
+    header = "Usage: mach [-f makefile] [-j jobs] [target_name...]"
 
 ------------------------------------------------------------------------
 
