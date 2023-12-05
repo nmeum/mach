@@ -2,10 +2,11 @@
 module Mach.Parser where
 
 import Control.Exception (throwIO)
-import Control.Monad (unless, void)
+import Control.Monad (unless, void, when)
 import Data.List (elemIndices)
 import Mach.Error (MakeErr (..))
 import qualified Mach.Types as T
+import Mach.Util (isSpecial)
 import Text.ParserCombinators.Parsec
   ( Parser,
     alphaNum,
@@ -165,7 +166,7 @@ infRule = do
   target <- char '.' >> (:) '.' <$> many1 targetChar
 
   let periods = length $ elemIndices '.' target
-  unless (periods >= 1 && periods <= 2) $
+  when (isSpecial target || (periods /= 1 && periods /= 2)) $
     unexpected "invalid inference rule target name"
 
   cmds <-
