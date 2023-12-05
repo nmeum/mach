@@ -40,15 +40,22 @@ makeOpts argv =
 
 ------------------------------------------------------------------------
 
-makefile :: MkFile -> FilePath -> IO MkDef
-makefile extra path = do
+makefile :: [Flag] -> MkFile -> MkFile -> FilePath -> IO MkDef
+makefile flags extra environ path = do
   f <- parseMkFile path
-  -- TODO: evaluate extra once
-  eval (extra ++ f)
 
-runMk :: MkFile -> [String] -> FilePath -> IO ()
-runMk extra my_targets path = do
-  mk <- makefile extra path
+  -- If -e is specified, overwrite macro assignments with environment.
+  let mk =
+        if null [f | EnvOverwrite <- flags]
+          then extra ++ environ ++ f
+          else extra ++ f ++ environ
+
+  -- TODO: evaluate extra and environ once
+  eval (mk)
+
+runMk :: [Flag] -> MkFile -> MkFile -> [String] -> FilePath -> IO ()
+runMk flags extra environ my_targets path = do
+  mk <- makefile flags extra environ path
   targets <-
     if null my_targets
       then (: []) <$> firstTarget' mk
@@ -71,14 +78,14 @@ main = do
   (flags, remain) <- getArgs >>= makeOpts
   (vars, targets) <- cmdLine $ unwords remain
 
-  (_flagsEnv, remainEnv) <- getEnv "MAKEFLAGS" >>= makeOpts . words
+  (flagsEnv, remainEnv) <- getEnv "MAKEFLAGS" >>= makeOpts . words
   (envMacros, _) <- cmdLine $ unwords remainEnv
 
   environs <- getEnvMarcos
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
-  let extra = builtins ++ vars ++ envMacros ++ environs
-  mapM_ (runMk extra targets) $
+  let extra = builtins ++ vars ++ envMacros
+  mapM_ (runMk (flags ++ flagsEnv) extra environs targets) $
     case [f | Makefile f <- flags] of
       [] -> ["Makefile"]
       fs -> fs
