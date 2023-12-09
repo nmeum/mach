@@ -29,6 +29,7 @@ import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (firstJustM, isSpecial, stripSuffix)
 import System.Directory (doesPathExist)
+import System.IO (hFlush, hPutStrLn, stdout)
 import System.Process (callCommand, createProcess, shell, waitForProcess)
 
 -- | Expanded target definition of a target rule or inference rule.
@@ -219,7 +220,7 @@ runCmds (Cmds cmds) = mapM_ runCmd cmds
       (_, _, _, p) <- createProcess (shell cmd)
       void $ waitForProcess p
     runCmd ('@' : cmd) = callCommand cmd
-    runCmd cmd = putStrLn cmd >> callCommand cmd
+    runCmd cmd = hPutStrLn stdout cmd >> hFlush stdout >> callCommand cmd
 
 ------------------------------------------------------------------------
 
