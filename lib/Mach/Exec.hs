@@ -5,6 +5,7 @@ import Control.Monad (filterM, unless)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..))
 import Mach.Eval
+import Mach.Types (ExecConfig)
 import System.Directory (doesPathExist, getModificationTime)
 
 -- Lookup the given target. If neither a target nor a file with
@@ -44,11 +45,11 @@ isUp2Date target = do
     else null <$> newerPreqs target
 
 -- Build a target if it isn't up-to-date.
-maybeBuild :: MkDef -> Target -> IO ()
-maybeBuild mk target = do
+maybeBuild :: ExecConfig -> MkDef -> Target -> IO ()
+maybeBuild conf mk target = do
   -- Recursively ensure that all prerequisites are up-to-date.
-  getTargetPreqs mk target >>= mapM_ (maybeBuild mk)
+  getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)
 
   up2Date <- isUp2Date target
   unless up2Date $
-    runCmds (getCmds mk target)
+    runCmds conf (getCmds mk target)

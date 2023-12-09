@@ -20,6 +20,7 @@ instance Show TargetError where
 data MakeErr
   = ParserErr P.ParseError
   | TargetErr TargetError
+  | ExecErr String
   deriving (Show)
 
 instance Exception MakeErr

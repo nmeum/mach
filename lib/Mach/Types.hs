@@ -1,6 +1,25 @@
 -- | Provides an abstraction expansion of $Makefile$ macros.
 module Mach.Types where
 
+import System.IO (Handle)
+
+-- | Configuration regarding the execution of Makefiles.
+data ExecConfig = ExecConfig
+  { -- | Handle used for all output
+    handle :: Handle,
+    -- | Command line flags.
+    flags :: [Flag]
+  }
+
+-- | Supported command line flags.
+data Flag
+  = EnvOverwrite
+  | Makefile String
+  | Jobs String
+  deriving (Show)
+
+------------------------------------------------------------------------
+
 -- | A macro assignment, can either be evaluated when the macro
 -- is assigned (immediate) or when the macro is used (delayed).
 data MacroAssign

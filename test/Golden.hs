@@ -2,12 +2,11 @@ module Golden (eqivTests) where
 
 import Control.Applicative ((<|>))
 import Control.Monad (void)
-import GHC.IO.Handle (hGetContents)
 import Mach.Main (run)
 import System.Directory
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.FilePath
-import System.IO.Silently (capture_)
+import System.IO (hClose, hGetContents)
 import System.Process
 import Test.Tasty
 import Test.Tasty.Golden.Advanced
@@ -37,7 +36,13 @@ runMach :: FilePath -> IO MakeResult
 runMach skel = do
   destDir <- prepTempDir "actual" skel
 
-  out <- capture_ (withCurrentDirectory destDir $ run [])
+  (readEnd, writeEnd) <- createPipe
+  withCurrentDirectory destDir $ run writeEnd []
+
+  -- The readEnd is semi-close by hGetContents, should be
+  -- closed once the entire handle content has been read.
+  out <- hGetContents readEnd <* hClose writeEnd
+
   pure (out, destDir)
 
 runGolden :: FilePath -> IO MakeResult
@@ -60,15 +65,10 @@ runGolden skel = do
 
 compareRuns :: MakeResult -> MakeResult -> IO (Maybe String)
 compareRuns (outG, fpG) (outA, fpA) = do
-  compareDirectory
+  out <- compareStdout
+  dir <- compareDirectory
+  pure (out <|> dir)
   where
-    -- TODO: Comparing stdout doesn't work correctly at the moment.
-    --       Probably an issue with System.IO.Silently.
-    --
-    -- out <- compareStdout
-    -- dir <- compareDirectory
-    -- pure (out <|> dir)
-
     compareStdout :: IO (Maybe String)
     compareStdout =
       pure $

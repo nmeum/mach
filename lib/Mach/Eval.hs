@@ -24,13 +24,14 @@ import Data.Functor ((<&>))
 import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines, NoTargetOrFile, UnexpectedPrereqs))
+import Mach.Error (MakeErr (ExecErr, TargetErr), TargetError (MultipleDefines, NoTargetOrFile, UnexpectedPrereqs))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (firstJustM, isSpecial, stripSuffix)
 import System.Directory (doesPathExist)
+import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO (hFlush, hPutStrLn, stdout)
-import System.Process (callCommand, createProcess, shell, waitForProcess)
+import System.Process (StdStream (UseHandle), callCommand, createProcess, createProcess_, shell, std_out, waitForProcess)
 
 -- | Expanded target definition of a target rule or inference rule.
 -- The same target definition may be used for multiple files. For
@@ -211,16 +212,31 @@ getCmds MkDef {assigns = env} target =
           ("*", T.AssignI $ stripSuffix (getName target))
         ]
 
-runCmds :: Cmds -> IO ()
-runCmds (Cmds cmds) = mapM_ runCmd cmds
+runCmds :: T.ExecConfig -> Cmds -> IO ()
+runCmds T.ExecConfig {T.handle = handle} (Cmds cmds) =
+  mapM_ runCmd cmds
   where
+    callCommand' :: String -> IO ()
+    callCommand' cmd
+      | handle == stdout = callCommand cmd
+      | otherwise = do
+          (_, _, _, p) <-
+            createProcess_
+              []
+              (shell cmd) {std_out = UseHandle handle}
+
+          exitCode <- waitForProcess p
+          case exitCode of
+            ExitSuccess -> pure ()
+            ExitFailure _ -> throwIO $ ExecErr ("non-zero exit status: " ++ show cmd)
+
     -- TODO: Parse prefixes in Parser
     runCmd :: String -> IO ()
     runCmd ('-' : cmd) = do
       (_, _, _, p) <- createProcess (shell cmd)
       void $ waitForProcess p
-    runCmd ('@' : cmd) = callCommand cmd
-    runCmd cmd = hPutStrLn stdout cmd >> hFlush stdout >> callCommand cmd
+    runCmd ('@' : cmd) = callCommand' cmd
+    runCmd cmd = hPutStrLn handle cmd >> hFlush handle >> callCommand' cmd
 
 ------------------------------------------------------------------------
 
