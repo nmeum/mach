@@ -5,6 +5,7 @@ module Mach.Eval
   ( TgtDef,
     MkDef,
     getPreqs,
+    defaultTarget,
     firstTarget,
     lookupRule,
     getCmds,
@@ -18,12 +19,12 @@ where
 
 import Control.Applicative ((<|>))
 import Control.Exception (throwIO)
-import Control.Monad (foldM, void)
+import Control.Monad (foldM, unless, void)
 import Data.Functor ((<&>))
 import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines))
+import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines, NoTargetOrFile, UnexpectedPrereqs))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (firstJustM, isSpecial, stripSuffix)
@@ -63,9 +64,19 @@ suffixes :: MkDef -> [String]
 suffixes MkDef {targetDefs = targets} =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
+-- | Returns a target built from the default rule (if defined).
+defaultTarget :: FilePath -> MkDef -> Either TargetError Target
+defaultTarget name MkDef {targetDefs = targets} = do
+  target <- case Map.lookup ".DEFAULT" targets of
+    Nothing -> Left $ NoTargetOrFile name
+    Just t -> pure t
+
+  unless (null $ getPreqs target) $
+    Left UnexpectedPrereqs
+
+  pure $ Target name (TgtDef [] $ getRawCmds target)
+
 -- | Lookup a target definition, the definition may be inferred.
---
--- TODO: Refactor this
 lookupRule :: MkDef -> String -> IO (Maybe Target)
 lookupRule mk@MkDef {targetDefs = targets} name =
   lookupRule' $ Map.lookup name targets

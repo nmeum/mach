@@ -3,29 +3,29 @@ module Mach.Exec where
 import Control.Exception (throwIO)
 import Control.Monad (filterM, unless)
 import Data.Maybe (catMaybes)
-import Mach.Error (MakeErr (..), TargetError (NoTargetOrFile))
+import Mach.Error (MakeErr (..))
 import Mach.Eval
 import System.Directory (doesPathExist, getModificationTime)
+
+-- Lookup the given target. If neither a target nor a file with
+-- the given name exists, then return the default target or throw
+-- an error. If no target but a file exists, return Nothing.
+targetOrFile :: MkDef -> String -> IO (Maybe Target)
+targetOrFile mk name = do
+  t <- lookupRule mk name
+  case t of
+    Just x -> pure $ Just x
+    Nothing -> do
+      exists <- doesPathExist name
+      if exists
+        then pure Nothing
+        else either (throwIO . TargetErr) (pure . Just) $ defaultTarget name mk
 
 -- Return all prerequisites which represent targets. If a prerequisite
 -- is neither a target nor an existing file, then an error is thrown.
 getTargetPreqs :: MkDef -> Target -> IO [Target]
 getTargetPreqs mk target =
-  catMaybes <$> mapM targetOrFile (getPreqs $ getDef target)
-  where
-    -- Lookup the given target. If neither a target nor a file
-    -- with the given name exists, then throw an error. If no
-    -- target but a file exists, return Nothing.
-    targetOrFile :: String -> IO (Maybe Target)
-    targetOrFile name = do
-      t <- lookupRule mk name
-      case t of
-        Just x -> pure $ Just x
-        Nothing -> do
-          exists <- doesPathExist name
-          if exists
-            then pure Nothing
-            else throwIO $ TargetErr (NoTargetOrFile name)
+  catMaybes <$> mapM (targetOrFile mk) (getPreqs $ getDef target)
 
 -- Return the names of all prerequisites that a newer than the given target.
 newerPreqs :: Target -> IO [FilePath]
