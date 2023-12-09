@@ -19,7 +19,9 @@ common warnings
 
 library
     import:           warnings
+    other-modules:    Paths_mach
     exposed-modules:
+        Mach.Main,
         Mach.Exec,
         Mach.Eval,
         Mach.Parser,
@@ -44,11 +46,8 @@ library
 executable mach
     import:           warnings
     main-is:          Main.hs
-    other-modules:    Paths_mach
-    -- other-extensions:
     build-depends:
         base   ^>=4.17.2.0,
-        parsec ^>=3.1.16.1,
         mach
 
     hs-source-dirs:   exe
