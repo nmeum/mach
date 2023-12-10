@@ -1,35 +1,30 @@
 module Golden (eqivTests) where
 
 import Control.Applicative ((<|>))
-import Control.Monad (void)
 import Mach.Main (run)
-import System.Directory
+import System.Directory (withCurrentDirectory)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.FilePath
 import System.IO (hClose, hGetContents)
 import System.Process
+  ( StdStream (CreatePipe),
+    createPipe,
+    createProcess,
+    cwd,
+    proc,
+    std_out,
+    waitForProcess,
+  )
 import Test.Tasty
 import Test.Tasty.Golden.Advanced
+import Util
 
-getTestDir :: IO FilePath
-getTestDir = do
-  tempDir <- getTemporaryDirectory
-  pure $ tempDir </> "mach-tests"
-
-prepTempDir :: String -> FilePath -> IO FilePath
-prepTempDir name skel = do
-  tempDir <- (</> name) <$> getTestDir
-  removePathForcibly tempDir
-    >> createDirectoryIfMissing True tempDir
-
-  -- Copy files from the skeleton dir to the tempDir.
-  -- Only works for regular files, probably doesn't recurse.
-  void $ listDirectory skel >>= mapM (\n -> copyFile (skel </> n) $ tempDir </> takeFileName n)
-
-  pure tempDir
-
-------------------------------------------------------------------------
-
+-- The golden test do not use a golden expected file but instead compare
+-- the "output" of a reference make(1) implementation and mach. The
+-- output is defined by 'MakeResult' and presently a tuple consisting of
+-- standard output as a 'String' and a 'FilePath' which refers to a
+-- temporary directory where make(1) was invoked. The directory is
+-- compared using `diff -r`.
 type MakeResult = (String, FilePath)
 
 runMach :: FilePath -> IO MakeResult
