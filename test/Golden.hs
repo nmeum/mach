@@ -5,13 +5,14 @@ import Mach.Main (run)
 import System.Directory (withCurrentDirectory)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.FilePath
-import System.IO (hClose, hGetContents)
+import System.IO (IOMode (WriteMode), hClose, hGetContents, openFile)
 import System.Process
-  ( StdStream (CreatePipe),
+  ( StdStream (CreatePipe, UseHandle),
     createPipe,
     createProcess,
     cwd,
     proc,
+    std_err,
     std_out,
     waitForProcess,
   )
@@ -43,15 +44,17 @@ runMach skel = do
 runGolden :: FilePath -> IO MakeResult
 runGolden skel = do
   destDir <- prepTempDir "golden" skel
+  devNull <- openFile "/dev/null" WriteMode
 
   (_, Just hout, _, p) <-
     createProcess
       (proc "make" [])
         { cwd = Just destDir,
-          std_out = CreatePipe
+          std_out = CreatePipe,
+          std_err = UseHandle devNull
         }
 
-  exitCode <- waitForProcess p
+  exitCode <- waitForProcess p <* hClose devNull
   case exitCode of
     ExitSuccess -> do
       out <- hGetContents hout
