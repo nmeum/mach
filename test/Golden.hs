@@ -107,5 +107,6 @@ eqivTests =
       runTest "default-rule",
       runTest "include-makefile",
       runTest "single-suffix-inference",
-      runTest "double-suffix-inference"
+      runTest "double-suffix-inference",
+      runTest "silent-exec"
     ]
