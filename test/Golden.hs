@@ -111,5 +111,7 @@ eqivTests =
       runTest "include-makefile",
       runTest "single-suffix-inference",
       runTest "double-suffix-inference",
-      runTest "silent-exec"
+      runTest "silent-exec",
+      runTest "ignore-error",
+      runTest "ignore-error-silent"
     ]
