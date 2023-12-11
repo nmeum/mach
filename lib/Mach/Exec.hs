@@ -1,12 +1,68 @@
-module Mach.Exec where
+module Mach.Exec (maybeBuild, targetOrFile) where
 
 import Control.Exception (throwIO)
 import Control.Monad (filterM, unless)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..))
 import Mach.Eval
-import Mach.Types (ExecConfig)
+import qualified Mach.Types as T
 import System.Directory (doesPathExist, getModificationTime)
+import System.Exit (ExitCode (ExitFailure, ExitSuccess))
+import System.IO (Handle, hFlush, hPutStrLn, stdout)
+import System.Process (ProcessHandle, StdStream (UseHandle), createProcess_, shell, std_out, waitForProcess)
+
+makeProc :: Handle -> String -> IO ProcessHandle
+makeProc handle cmd = do
+  (_, _, _, p) <-
+    if handle == stdout
+      then createProcess_ [] (shell cmd)
+      else createProcess_ [] (shell cmd) {std_out = UseHandle handle}
+  pure p
+
+-- Check input string for command prefixes. Returns config
+-- as '(ignore, silent, output)' and remainder of the input.
+collectPrefixes :: String -> (String, (Bool, Bool, Bool))
+collectPrefixes str =
+  let pre = takeWhile isPrefix str
+   in (drop (length pre) str, prefixes pre)
+  where
+    isPrefix :: Char -> Bool
+    isPrefix '-' = True
+    isPrefix '@' = True
+    isPrefix '+' = True
+    isPrefix _ch = False
+
+    prefixes :: String -> (Bool, Bool, Bool)
+    prefixes =
+      foldr
+        ( \x (ignore, silent, output) ->
+            case x of
+              '-' -> (True, silent, output)
+              '@' -> (ignore, True, output)
+              '+' -> (ignore, silent, True)
+              _ -> error "unrechable"
+        )
+        (False, False, False)
+
+runCmd :: T.ExecConfig -> String -> IO ()
+runCmd T.ExecConfig {T.handle = handle} input = do
+  let (cmd, (ignore, silent, _exec)) = collectPrefixes input
+  unless (silent) $
+    (hPutStrLn handle cmd >> hFlush handle)
+
+  p <- makeProc handle cmd
+  exitCode <- waitForProcess p
+  case exitCode of
+    ExitSuccess -> pure ()
+    ExitFailure _ ->
+      unless (ignore) $
+        throwIO $
+          ExecErr ("non-zero exit: " ++ show cmd)
+
+runTarget :: T.ExecConfig -> MkDef -> Target -> IO ()
+runTarget conf mk tgt = mapM_ (runCmd conf) (getCmds mk tgt)
+
+------------------------------------------------------------------------
 
 -- Lookup the given target. If neither a target nor a file with
 -- the given name exists, then return the default target or throw
@@ -45,7 +101,7 @@ isUp2Date target = do
     else null <$> newerPreqs target
 
 -- Build a target if it isn't up-to-date.
-maybeBuild :: ExecConfig -> MkDef -> Target -> IO ()
+maybeBuild :: T.ExecConfig -> MkDef -> Target -> IO ()
 maybeBuild conf mk target = do
   -- Recursively ensure that all prerequisites are up-to-date.
   getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)

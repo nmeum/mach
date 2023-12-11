@@ -4,11 +4,10 @@
 module Mach.Eval
   ( TgtDef,
     MkDef,
-    collectPrefixes,
     getPreqs,
+    getCmds,
     defaultTarget,
     firstTarget,
-    runTarget,
     lookupRule,
     eval,
     Target,
@@ -24,14 +23,11 @@ import Data.Functor ((<&>))
 import Data.List (elemIndices, isSuffixOf)
 import qualified Data.Map as Map
 import Data.Maybe (fromMaybe)
-import Mach.Error (MakeErr (ExecErr, TargetErr), TargetError (MultipleDefines, NoTargetOrFile, UnexpectedPrereqs))
+import Mach.Error (MakeErr (TargetErr), TargetError (MultipleDefines, NoTargetOrFile, UnexpectedPrereqs))
 import Mach.Parser (parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (firstJustM, isSpecial, stripSuffix)
 import System.Directory (doesPathExist)
-import System.Exit (ExitCode (ExitFailure, ExitSuccess))
-import System.IO (Handle, hFlush, hPutStrLn, stdout)
-import System.Process (ProcessHandle, StdStream (UseHandle), createProcess_, shell, std_out, waitForProcess)
 
 -- | Expanded target definition of a target rule or inference rule.
 -- The same target definition may be used for multiple files. For
@@ -187,8 +183,9 @@ setDef :: Target -> TgtDef -> Target
 setDef (Target name _) newDef = Target name newDef
 setDef (Inferred name src _) newDef = Inferred name src newDef
 
-------------------------------------------------------------------------
-
+-- | Retrieve expanded commands for a 'Target'.
+--
+-- TODO: Return custom type here and parse prefixes.
 getCmds :: MkDef -> Target -> [String]
 getCmds MkDef {assigns = env} target =
   fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
@@ -208,57 +205,6 @@ getCmds MkDef {assigns = env} target =
           ),
           ("*", T.AssignI $ stripSuffix (getName target))
         ]
-
-makeProc :: Handle -> String -> IO ProcessHandle
-makeProc handle cmd = do
-  (_, _, _, p) <-
-    if handle == stdout
-      then createProcess_ [] (shell cmd)
-      else createProcess_ [] (shell cmd) {std_out = UseHandle handle}
-  pure p
-
--- Check input string for command prefixes. Returns config
--- as '(ignore, silent, output)' and remainder of the input.
-collectPrefixes :: String -> (String, (Bool, Bool, Bool))
-collectPrefixes str =
-  let pre = takeWhile isPrefix str
-   in (drop (length pre) str, prefixes pre)
-  where
-    isPrefix :: Char -> Bool
-    isPrefix '-' = True
-    isPrefix '@' = True
-    isPrefix '+' = True
-    isPrefix _ch = False
-
-    prefixes :: String -> (Bool, Bool, Bool)
-    prefixes =
-      foldr
-        ( \x (ignore, silent, output) ->
-            case x of
-              '-' -> (True, silent, output)
-              '@' -> (ignore, True, output)
-              '+' -> (ignore, silent, True)
-              _ -> error "unrechable"
-        )
-        (False, False, False)
-
-runCmd :: T.ExecConfig -> String -> IO ()
-runCmd T.ExecConfig {T.handle = handle} input = do
-  let (cmd, (ignore, silent, _exec)) = collectPrefixes input
-  unless (silent) $
-    (hPutStrLn handle cmd >> hFlush handle)
-
-  p <- makeProc handle cmd
-  exitCode <- waitForProcess p
-  case exitCode of
-    ExitSuccess -> pure ()
-    ExitFailure _ ->
-      unless (ignore) $
-        throwIO $
-          ExecErr ("non-zero exit: " ++ show cmd)
-
-runTarget :: T.ExecConfig -> MkDef -> Target -> IO ()
-runTarget conf mk tgt = mapM_ (runCmd conf) (getCmds mk tgt)
 
 ------------------------------------------------------------------------
 
