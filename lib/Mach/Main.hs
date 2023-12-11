@@ -48,13 +48,20 @@ makefile flags extra environ path = do
   -- TODO: evaluate extra and environ once
   eval (mk)
 
-runMk :: T.ExecConfig -> T.MkFile -> T.MkFile -> [String] -> FilePath -> IO ()
-runMk conf@T.ExecConfig {T.flags = flags} extra environ my_targets path = do
+runMk :: Handle -> [T.Flag] -> T.MkFile -> T.MkFile -> [String] -> FilePath -> IO ()
+runMk handle flags extra environ my_targets path = do
   mk <- makefile flags extra environ path
   targets <-
     if null my_targets
       then (: []) <$> firstTarget' mk
       else pure my_targets
+
+  -- TODO: Include mk in the ExecConfig.
+  let conf =
+        T.ExecConfig
+          { T.handle = handle,
+            T.flags = flags
+          }
 
   mapM (targetOrFile' mk) targets >>= mapM_ (maybeBuild conf mk)
   where
@@ -79,14 +86,8 @@ run handle args = do
   environs <- getEnvMarcos
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
-  let conf =
-        T.ExecConfig
-          { T.handle = handle,
-            T.flags = flags ++ flagsEnv
-          }
-
   let extra = builtins ++ vars ++ envMacros
-  mapM_ (runMk conf extra environs targets) $
+  mapM_ (runMk handle (flags ++ flagsEnv) extra environs targets) $
     case [f | T.Makefile f <- flags] of
       [] -> ["Makefile"]
       fs -> fs
