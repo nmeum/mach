@@ -52,4 +52,4 @@ maybeBuild conf mk target = do
 
   up2Date <- isUp2Date target
   unless up2Date $
-    runCmds conf (getCmds mk target)
+    runTarget conf mk target

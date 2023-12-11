@@ -8,9 +8,8 @@ module Mach.Eval
     getPreqs,
     defaultTarget,
     firstTarget,
+    runTarget,
     lookupRule,
-    getCmds,
-    runCmds,
     eval,
     Target,
     getName,
@@ -190,12 +189,9 @@ setDef (Inferred name src _) newDef = Inferred name src newDef
 
 ------------------------------------------------------------------------
 
--- | Expanded commands of a target.
-newtype Cmds = Cmds [String]
-
-getCmds :: MkDef -> Target -> Cmds
+getCmds :: MkDef -> Target -> [String]
 getCmds MkDef {assigns = env} target =
-  Cmds $ fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
+  fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
   where
     targetDef :: TgtDef
     targetDef = getDef target
@@ -261,8 +257,8 @@ runCmd T.ExecConfig {T.handle = handle} input = do
         throwIO $
           ExecErr ("non-zero exit: " ++ show cmd)
 
-runCmds :: T.ExecConfig -> Cmds -> IO ()
-runCmds conf (Cmds cmds) = mapM_ (runCmd conf) cmds
+runTarget :: T.ExecConfig -> MkDef -> Target -> IO ()
+runTarget conf mk tgt = mapM_ (runCmd conf) (getCmds mk tgt)
 
 ------------------------------------------------------------------------
 
