@@ -3,7 +3,7 @@ module Mach.Main (run) where
 import Control.Exception (throwIO)
 import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
-import Mach.Exec (maybeBuild, targetOrFile)
+import Mach.Exec (ExecConfig (..), maybeBuild, targetOrFile)
 import Mach.Parser (cmdLine, parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (getEnvMarcos)
@@ -36,12 +36,12 @@ makeOpts argv =
 ------------------------------------------------------------------------
 
 makefile :: [T.Flag] -> T.MkFile -> T.MkFile -> FilePath -> IO MkDef
-makefile flags extra environ path = do
+makefile my_flags extra environ path = do
   f <- parseMkFile path
 
   -- If -e is specified, overwrite macro assignments with environment.
   let mk =
-        if null [f | T.EnvOverwrite <- flags]
+        if null [f | T.EnvOverwrite <- my_flags]
           then extra ++ environ ++ f
           else extra ++ f ++ environ
 
@@ -49,8 +49,8 @@ makefile flags extra environ path = do
   eval (mk)
 
 runMk :: Handle -> [T.Flag] -> T.MkFile -> T.MkFile -> [String] -> FilePath -> IO ()
-runMk handle flags extra environ my_targets path = do
-  mk <- makefile flags extra environ path
+runMk handle my_flags extra environ my_targets path = do
+  mk <- makefile my_flags extra environ path
   targets <-
     if null my_targets
       then (: []) <$> firstTarget' mk
@@ -58,9 +58,9 @@ runMk handle flags extra environ my_targets path = do
 
   -- TODO: Include mk in the ExecConfig.
   let conf =
-        T.ExecConfig
-          { T.handle = handle,
-            T.flags = flags
+        ExecConfig
+          { output = handle,
+            flags = my_flags
           }
 
   mapM (targetOrFile' mk) targets >>= mapM_ (maybeBuild conf mk)
@@ -77,7 +77,7 @@ runMk handle flags extra environ my_targets path = do
 
 run :: Handle -> [String] -> IO ()
 run handle args = do
-  (flags, remain) <- makeOpts args
+  (flagsCmd, remain) <- makeOpts args
   (vars, targets) <- cmdLine $ unwords remain
 
   (flagsEnv, remainEnv) <- getEnv "MAKEFLAGS" >>= makeOpts . words
@@ -87,7 +87,7 @@ run handle args = do
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
   let extra = builtins ++ vars ++ envMacros
-  mapM_ (runMk handle (flags ++ flagsEnv) extra environs targets) $
-    case [f | T.Makefile f <- flags] of
+  mapM_ (runMk handle (flagsCmd ++ flagsEnv) extra environs targets) $
+    case [f | T.Makefile f <- flagsCmd] of
       [] -> ["Makefile"]
       fs -> fs

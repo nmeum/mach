@@ -1,4 +1,9 @@
-module Mach.Exec (maybeBuild, targetOrFile) where
+module Mach.Exec
+  ( maybeBuild,
+    targetOrFile,
+    ExecConfig (..),
+  )
+where
 
 import Control.Exception (throwIO)
 import Control.Monad (filterM, unless)
@@ -10,6 +15,14 @@ import System.Directory (doesPathExist, getModificationTime)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO (Handle, hFlush, hPutStrLn, stdout)
 import System.Process (ProcessHandle, StdStream (UseHandle), createProcess_, shell, std_out, waitForProcess)
+
+-- | Configuration regarding the execution of Makefiles.
+data ExecConfig = ExecConfig
+  { -- | Handle used for all output
+    output :: Handle,
+    -- | Command line flags.
+    flags :: [T.Flag]
+  }
 
 makeProc :: Handle -> String -> IO ProcessHandle
 makeProc handle cmd = do
@@ -35,17 +48,17 @@ collectPrefixes str =
     prefixes :: String -> (Bool, Bool, Bool)
     prefixes =
       foldr
-        ( \x (ignore, silent, output) ->
+        ( \x (ignore, silent, forceExec) ->
             case x of
-              '-' -> (True, silent, output)
-              '@' -> (ignore, True, output)
+              '-' -> (True, silent, forceExec)
+              '@' -> (ignore, True, forceExec)
               '+' -> (ignore, silent, True)
               _ -> error "unrechable"
         )
         (False, False, False)
 
-runCmd :: T.ExecConfig -> String -> IO ()
-runCmd T.ExecConfig {T.handle = handle} input = do
+runCmd :: ExecConfig -> String -> IO ()
+runCmd ExecConfig {output = handle} input = do
   let (cmd, (ignore, silent, _exec)) = collectPrefixes input
   unless (silent) $
     (hPutStrLn handle cmd >> hFlush handle)
@@ -59,7 +72,7 @@ runCmd T.ExecConfig {T.handle = handle} input = do
         throwIO $
           ExecErr ("non-zero exit: " ++ show cmd)
 
-runTarget :: T.ExecConfig -> MkDef -> Target -> IO ()
+runTarget :: ExecConfig -> MkDef -> Target -> IO ()
 runTarget conf mk tgt = mapM_ (runCmd conf) (getCmds mk tgt)
 
 ------------------------------------------------------------------------
@@ -101,7 +114,7 @@ isUp2Date target = do
     else null <$> newerPreqs target
 
 -- Build a target if it isn't up-to-date.
-maybeBuild :: T.ExecConfig -> MkDef -> Target -> IO ()
+maybeBuild :: ExecConfig -> MkDef -> Target -> IO ()
 maybeBuild conf mk target = do
   -- Recursively ensure that all prerequisites are up-to-date.
   getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)
