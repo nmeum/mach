@@ -24,7 +24,9 @@ data ExecConfig = ExecConfig
     -- | Command line flags.
     flags :: [T.Flag],
     -- | Silent targets (.SILENT special target)
-    silenced :: Maybe [String]
+    silenced :: Maybe [String],
+    -- | Ignored targets (.IGNORE special target)
+    ignored :: Maybe [String]
   }
 
 mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
@@ -32,11 +34,19 @@ mkConfig mkDef handle cflags =
   ExecConfig
     { output = handle,
       flags = cflags,
-      silenced = silent mkDef
+      silenced = silent mkDef,
+      ignored = ignore mkDef
     }
 
 isSilent :: ExecConfig -> Target -> Bool
 isSilent ExecConfig {silenced = s} tgt =
+  case s of
+    Nothing -> False
+    Just [] -> True
+    Just xs -> getName tgt `elem` xs
+
+isIgnored :: ExecConfig -> Target -> Bool
+isIgnored ExecConfig {ignored = s} tgt =
   case s of
     Nothing -> False
     Just [] -> True
@@ -60,7 +70,7 @@ runCmd conf@ExecConfig {output = handle} tgt cmd = do
   case exitCode of
     ExitSuccess -> pure ()
     ExitFailure _ ->
-      unless (cmdIgnore cmd) $
+      unless (cmdIgnore cmd || isIgnored conf tgt) $
         throwIO $
           ExecErr ("non-zero exit: " ++ show cmd)
 

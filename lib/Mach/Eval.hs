@@ -13,6 +13,7 @@ module Mach.Eval
     cmdShell,
     getCmds,
     silent,
+    ignore,
     defaultTarget,
     firstTarget,
     lookupRule,
@@ -73,6 +74,11 @@ suffixes MkDef {targetDefs = targets} =
 silent :: MkDef -> Maybe [String]
 silent MkDef {targetDefs = targets} =
   getPreqs <$> Map.lookup ".SILENT" targets
+
+-- | Returns all names of ignored targets (.IGNORE special target).
+ignore :: MkDef -> Maybe [String]
+ignore MkDef {targetDefs = targets} =
+  getPreqs <$> Map.lookup ".IGNORE" targets
 
 -- | Returns a target built from the default rule (if defined).
 defaultTarget :: FilePath -> MkDef -> Either TargetError Target
