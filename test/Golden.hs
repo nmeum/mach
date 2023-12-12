@@ -115,5 +115,10 @@ eqivTests =
       runTest "ignore-error",
       runTest "ignore-error-silent",
       runTest "silent-selected-targets",
-      runTest "silent-all"
+      runTest "silent-all",
+      runTest "expand-append",
+      runTest "substitute-expand",
+      runTest "builtin-c-compilation1",
+      runTest "builtin-c-compilation2"
+      -- runTest "append-prerequisites",
     ]
