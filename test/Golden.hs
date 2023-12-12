@@ -48,7 +48,7 @@ runGolden skel = do
 
   (_, Just hout, _, p) <-
     createProcess
-      (proc "make" [])
+      (proc "pdpmake" [])
         { cwd = Just destDir,
           std_out = CreatePipe,
           std_err = UseHandle devNull
