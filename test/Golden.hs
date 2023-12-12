@@ -113,5 +113,7 @@ eqivTests =
       runTest "double-suffix-inference",
       runTest "silent-exec",
       runTest "ignore-error",
-      runTest "ignore-error-silent"
+      runTest "ignore-error-silent",
+      runTest "silent-selected-targets",
+      runTest "silent-all"
     ]

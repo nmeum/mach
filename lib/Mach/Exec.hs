@@ -1,7 +1,8 @@
 module Mach.Exec
-  ( maybeBuild,
+  ( mkConfig,
+    maybeBuild,
     targetOrFile,
-    ExecConfig (..),
+    ExecConfig,
   )
 where
 
@@ -21,8 +22,25 @@ data ExecConfig = ExecConfig
   { -- | Handle used for all output
     output :: Handle,
     -- | Command line flags.
-    flags :: [T.Flag]
+    flags :: [T.Flag],
+    -- | Silent targets (.SILENT special target)
+    silenced :: Maybe [String]
   }
+
+mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
+mkConfig mkDef handle cflags =
+  ExecConfig
+    { output = handle,
+      flags = cflags,
+      silenced = silent mkDef
+    }
+
+isSilent :: ExecConfig -> Target -> Bool
+isSilent ExecConfig {silenced = s} tgt =
+  case s of
+    Nothing -> False
+    Just [] -> True
+    Just xs -> getName tgt `elem` xs
 
 makeProc :: ExecConfig -> String -> IO ProcessHandle
 makeProc ExecConfig {output = handle} cmd = do
@@ -32,9 +50,9 @@ makeProc ExecConfig {output = handle} cmd = do
       else createProcess_ [] (shell cmd) {std_out = UseHandle handle}
   pure p
 
-runCmd :: ExecConfig -> Cmd -> IO ()
-runCmd conf@ExecConfig {output = handle} cmd = do
-  unless (cmdSilent cmd) $
+runCmd :: ExecConfig -> Target -> Cmd -> IO ()
+runCmd conf@ExecConfig {output = handle} tgt cmd = do
+  unless (cmdSilent cmd || isSilent conf tgt) $
     (hPutStrLn handle (show cmd) >> hFlush handle)
 
   p <- makeProc conf $ cmdShell cmd
@@ -47,7 +65,7 @@ runCmd conf@ExecConfig {output = handle} cmd = do
           ExecErr ("non-zero exit: " ++ show cmd)
 
 runTarget :: ExecConfig -> MkDef -> Target -> IO ()
-runTarget conf mk tgt = mapM_ (runCmd conf) (getCmds mk tgt)
+runTarget conf mk tgt = mapM_ (runCmd conf tgt) (getCmds mk tgt)
 
 ------------------------------------------------------------------------
 

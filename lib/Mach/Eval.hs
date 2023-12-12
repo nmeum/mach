@@ -12,6 +12,7 @@ module Mach.Eval
     cmdExec,
     cmdShell,
     getCmds,
+    silent,
     defaultTarget,
     firstTarget,
     lookupRule,
@@ -63,10 +64,19 @@ data MkDef = MkDef
   }
   deriving (Show)
 
--- | Return all suffixes.
+-- | Return all suffixes (.SUFFIXES special target).
 suffixes :: MkDef -> [String]
 suffixes MkDef {targetDefs = targets} =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
+
+-- | Returns all names of silent targets (.SILENT special target).
+--
+-- TODO: Allow multiple .SILENT special target definitions in the
+-- Makefile. This requires special handling for special targets when
+-- building the 'targets' 'Map'.
+silent :: MkDef -> Maybe [String]
+silent MkDef {targetDefs = targets} =
+  getPreqs <$> Map.lookup ".SILENT" targets
 
 -- | Returns a target built from the default rule (if defined).
 defaultTarget :: FilePath -> MkDef -> Either TargetError Target

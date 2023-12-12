@@ -3,7 +3,7 @@ module Mach.Main (run) where
 import Control.Exception (throwIO)
 import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
-import Mach.Exec (ExecConfig (..), maybeBuild, targetOrFile)
+import Mach.Exec (maybeBuild, mkConfig, targetOrFile)
 import Mach.Parser (cmdLine, parseMkFile)
 import qualified Mach.Types as T
 import Mach.Util (getEnvMarcos)
@@ -56,12 +56,7 @@ runMk handle my_flags extra environ my_targets path = do
       then (: []) <$> firstTarget' mk
       else pure my_targets
 
-  -- TODO: Include mk in the ExecConfig.
-  let conf =
-        ExecConfig
-          { output = handle,
-            flags = my_flags
-          }
+  let conf = mkConfig mk handle my_flags
 
   mapM (targetOrFile' mk) targets >>= mapM_ (maybeBuild conf mk)
   where
