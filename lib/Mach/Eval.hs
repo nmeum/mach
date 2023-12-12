@@ -12,6 +12,7 @@ module Mach.Eval
     cmdExec,
     cmdShell,
     getCmds,
+    phony,
     silent,
     ignore,
     defaultTarget,
@@ -72,6 +73,9 @@ getSpecialPreqs MkDef {targetDefs = targets} name =
 -- | Return all suffixes (.SUFFIXES special target).
 suffixes :: MkDef -> [String]
 suffixes mkDef = fromMaybe [] (getSpecialPreqs mkDef ".SUFFIXES")
+
+phony :: MkDef -> [String]
+phony mkDef = fromMaybe [] (getSpecialPreqs mkDef ".PHONY")
 
 -- | Returns all names of silent targets (.SILENT special target).
 silent :: MkDef -> Maybe [String]

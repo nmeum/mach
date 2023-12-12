@@ -7,7 +7,7 @@ module Mach.Exec
 where
 
 import Control.Exception (throwIO)
-import Control.Monad (filterM, unless)
+import Control.Monad (filterM, unless, when)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..))
 import Mach.Eval
@@ -26,7 +26,9 @@ data ExecConfig = ExecConfig
     -- | Silent targets (.SILENT special target)
     silenced :: Maybe [String],
     -- | Ignored targets (.IGNORE special target)
-    ignored :: Maybe [String]
+    ignored :: Maybe [String],
+    -- | .PHONY targets.
+    phonies :: [String]
   }
 
 mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
@@ -35,7 +37,8 @@ mkConfig mkDef handle cflags =
     { output = handle,
       flags = cflags,
       silenced = silent mkDef,
-      ignored = ignore mkDef
+      ignored = ignore mkDef,
+      phonies = phony mkDef
     }
 
 isSilent :: ExecConfig -> Target -> Bool
@@ -51,6 +54,9 @@ isIgnored ExecConfig {ignored = s} tgt =
     Nothing -> False
     Just [] -> True
     Just xs -> getName tgt `elem` xs
+
+isPhony :: ExecConfig -> Target -> Bool
+isPhony ExecConfig {phonies = lst} tgt = getName tgt `elem` lst
 
 makeProc :: ExecConfig -> String -> IO ProcessHandle
 makeProc ExecConfig {output = handle} cmd = do
@@ -122,5 +128,5 @@ maybeBuild conf mk target = do
   getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)
 
   up2Date <- isUp2Date target
-  unless up2Date $
+  when (not up2Date || isPhony conf target) $
     runTarget conf mk target
