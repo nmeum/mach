@@ -70,10 +70,6 @@ suffixes MkDef {targetDefs = targets} =
   maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
 
 -- | Returns all names of silent targets (.SILENT special target).
---
--- TODO: Allow multiple .SILENT special target definitions in the
--- Makefile. This requires special handling for special targets when
--- building the 'targets' 'Map'.
 silent :: MkDef -> Maybe [String]
 silent MkDef {targetDefs = targets} =
   getPreqs <$> Map.lookup ".SILENT" targets

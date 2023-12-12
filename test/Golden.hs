@@ -119,6 +119,7 @@ eqivTests =
       runTest "expand-append",
       runTest "substitute-expand",
       runTest "builtin-c-compilation1",
-      runTest "builtin-c-compilation2"
+      runTest "builtin-c-compilation2",
+      runTest "silent-append"
       -- runTest "append-prerequisites",
     ]
