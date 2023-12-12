@@ -1,10 +1,16 @@
 {-# LANGUAGE LambdaCase #-}
+{-# LANGUAGE RecordWildCards #-}
 
 -- | This module performs Makefile macro expansion.
 module Mach.Eval
   ( TgtDef,
     MkDef,
     getPreqs,
+    Cmd,
+    cmdIgnore,
+    cmdSilent,
+    cmdExec,
+    cmdShell,
     getCmds,
     defaultTarget,
     firstTarget,
@@ -183,12 +189,35 @@ setDef :: Target -> TgtDef -> Target
 setDef (Target name _) newDef = Target name newDef
 setDef (Inferred name src _) newDef = Inferred name src newDef
 
+------------------------------------------------------------------------
+
+-- | A command consisting of a list of prefixes and the shell command.
+data Cmd = Cmd
+  { cmdIgnore :: Bool,
+    cmdSilent :: Bool,
+    cmdExec :: Bool,
+    cmdShell :: String
+  }
+
+instance Show Cmd where
+  show cmd = cmdShell cmd
+
+mkCmd :: String -> Cmd
+mkCmd str = mkCmd' $ Cmd False False False str
+  where
+    mkCmd' :: Cmd -> Cmd
+    mkCmd' Cmd {cmdShell = '-' : xs, ..} =
+      mkCmd' $ Cmd True cmdSilent cmdExec xs
+    mkCmd' Cmd {cmdShell = '@' : xs, ..} =
+      mkCmd' $ Cmd cmdIgnore True cmdExec xs
+    mkCmd' Cmd {cmdShell = '+' : xs, ..} =
+      mkCmd' $ Cmd cmdIgnore cmdSilent True xs
+    mkCmd' cmd = cmd
+
 -- | Retrieve expanded commands for a 'Target'.
---
--- TODO: Return custom type here and parse prefixes.
-getCmds :: MkDef -> Target -> [String]
+getCmds :: MkDef -> Target -> [Cmd]
 getCmds MkDef {assigns = env} target =
-  fmap (expand $ Map.union internalMacros env) (getRawCmds targetDef)
+  (mkCmd . (expand $ Map.union internalMacros env)) <$> getRawCmds targetDef
   where
     targetDef :: TgtDef
     targetDef = getDef target

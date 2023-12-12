@@ -24,51 +24,25 @@ data ExecConfig = ExecConfig
     flags :: [T.Flag]
   }
 
-makeProc :: Handle -> String -> IO ProcessHandle
-makeProc handle cmd = do
+makeProc :: ExecConfig -> String -> IO ProcessHandle
+makeProc ExecConfig {output = handle} cmd = do
   (_, _, _, p) <-
     if handle == stdout
       then createProcess_ [] (shell cmd)
       else createProcess_ [] (shell cmd) {std_out = UseHandle handle}
   pure p
 
--- Check input string for command prefixes. Returns config
--- as '(ignore, silent, output)' and remainder of the input.
-collectPrefixes :: String -> (String, (Bool, Bool, Bool))
-collectPrefixes str =
-  let pre = takeWhile isPrefix str
-   in (drop (length pre) str, prefixes pre)
-  where
-    isPrefix :: Char -> Bool
-    isPrefix '-' = True
-    isPrefix '@' = True
-    isPrefix '+' = True
-    isPrefix _ch = False
+runCmd :: ExecConfig -> Cmd -> IO ()
+runCmd conf@ExecConfig {output = handle} cmd = do
+  unless (cmdSilent cmd) $
+    (hPutStrLn handle (show cmd) >> hFlush handle)
 
-    prefixes :: String -> (Bool, Bool, Bool)
-    prefixes =
-      foldr
-        ( \x (ignore, silent, forceExec) ->
-            case x of
-              '-' -> (True, silent, forceExec)
-              '@' -> (ignore, True, forceExec)
-              '+' -> (ignore, silent, True)
-              _ -> error "unrechable"
-        )
-        (False, False, False)
-
-runCmd :: ExecConfig -> String -> IO ()
-runCmd ExecConfig {output = handle} input = do
-  let (cmd, (ignore, silent, _exec)) = collectPrefixes input
-  unless (silent) $
-    (hPutStrLn handle cmd >> hFlush handle)
-
-  p <- makeProc handle cmd
+  p <- makeProc conf $ cmdShell cmd
   exitCode <- waitForProcess p
   case exitCode of
     ExitSuccess -> pure ()
     ExitFailure _ ->
-      unless (ignore) $
+      unless (cmdIgnore cmd) $
         throwIO $
           ExecErr ("non-zero exit: " ++ show cmd)
 
