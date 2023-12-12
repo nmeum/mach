@@ -65,20 +65,21 @@ data MkDef = MkDef
   }
   deriving (Show)
 
+getSpecialPreqs :: MkDef -> String -> Maybe [String]
+getSpecialPreqs MkDef {targetDefs = targets} name =
+  getPreqs <$> Map.lookup name targets
+
 -- | Return all suffixes (.SUFFIXES special target).
 suffixes :: MkDef -> [String]
-suffixes MkDef {targetDefs = targets} =
-  maybe [] getPreqs (Map.lookup ".SUFFIXES" targets)
+suffixes mkDef = fromMaybe [] (getSpecialPreqs mkDef ".SUFFIXES")
 
 -- | Returns all names of silent targets (.SILENT special target).
 silent :: MkDef -> Maybe [String]
-silent MkDef {targetDefs = targets} =
-  getPreqs <$> Map.lookup ".SILENT" targets
+silent mkDef = getSpecialPreqs mkDef ".SILENT"
 
 -- | Returns all names of ignored targets (.IGNORE special target).
 ignore :: MkDef -> Maybe [String]
-ignore MkDef {targetDefs = targets} =
-  getPreqs <$> Map.lookup ".IGNORE" targets
+ignore mkDef = getSpecialPreqs mkDef ".IGNORE"
 
 -- | Returns a target built from the default rule (if defined).
 defaultTarget :: FilePath -> MkDef -> Either TargetError Target
