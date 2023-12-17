@@ -1,6 +1,7 @@
 module Mach.Main (run) where
 
 import Control.Exception (throwIO)
+import Data.Maybe (fromMaybe)
 import Mach.Error (MakeErr (..), TargetError (NoSuchTarget, ZeroTargetsDefined))
 import Mach.Eval (MkDef, eval, firstTarget)
 import Mach.Exec (maybeBuild, mkConfig, targetOrFile)
@@ -15,7 +16,7 @@ import System.Console.GetOpt
     getOpt,
     usageInfo,
   )
-import System.Environment (getEnv)
+import System.Environment (lookupEnv)
 import System.IO (Handle)
 
 options :: [OptDescr T.Flag]
@@ -75,7 +76,7 @@ run handle args = do
   (flagsCmd, remain) <- makeOpts args
   (vars, targets) <- cmdLine $ unwords remain
 
-  (flagsEnv, remainEnv) <- getEnv "MAKEFLAGS" >>= makeOpts . words
+  (flagsEnv, remainEnv) <- (fromMaybe "" <$> lookupEnv "MAKEFLAGS") >>= makeOpts . words
   (envMacros, _) <- cmdLine $ unwords remainEnv
 
   environs <- getEnvMarcos
