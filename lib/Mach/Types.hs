@@ -4,6 +4,7 @@ module Mach.Types where
 -- | Supported command line flags.
 data Flag
   = EnvOverwrite
+  | IgnoreAll
   | Makefile String
   | Jobs String
   deriving (Show)

@@ -33,13 +33,14 @@ data ExecConfig = ExecConfig
 
 mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
 mkConfig mkDef handle cflags =
-  ExecConfig
-    { output = handle,
-      flags = cflags,
-      silenced = silent mkDef,
-      ignored = ignore mkDef,
-      phonies = phony mkDef
-    }
+  let ignAll = not $ null [() | T.IgnoreAll <- cflags]
+   in ExecConfig
+        { output = handle,
+          flags = cflags,
+          silenced = silent mkDef,
+          ignored = if ignAll then Just [] else ignore mkDef,
+          phonies = phony mkDef
+        }
 
 isSilent :: ExecConfig -> Target -> Bool
 isSilent ExecConfig {silenced = s} tgt =

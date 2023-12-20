@@ -122,6 +122,7 @@ eqivTests =
       runTest "builtin-c-compilation2" [],
       runTest "silent-append" [],
       runTest "ignore-all" [],
-      runTest "ignore-single" []
+      runTest "ignore-single" [],
+      runTest "ignore-all-cmdline" ["-i"]
       -- runTest "append-prerequisites",
     ]
