@@ -2,6 +2,11 @@
 
 A WiP implementation of `make(1)`, aims to be compatible with [P1003.1™-202x/D3][posix draft] at some point.
 
+## Motivation
+
+The goal is to write a clean, easily extendible implementation of POSIX make in order to enable experiments with fancy new make features.
+For example, [bazel][bazel web]-like [sandboxing][bazel sandbox] (executing each target in a Linux namespace) to find impure dependencies in existing Makefiles, or debugging features such as the ones provided by the [remake project][remake github].
+
 ## Status
 
 Presently, the implementation is mainly a proof of concept.
@@ -64,3 +69,5 @@ This work is licensed under [CC BY-NC-SA 4.0][cc license].
 [guix web]: https://guix.gnu.org
 [nix web]: https://nixos.org/nix/
 [cabal web]: https://haskell.org/cabal
+[bazel web]: https://bazel.build
+[bazel sandbox]: https://bazel.build/docs/sandboxing
