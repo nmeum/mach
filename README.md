@@ -43,6 +43,13 @@ Once Guix is installed on your system, you can build mach by cloning the reposit
 
 If Guix is configured correctly, this should add the mach executable to your user's profile.
 
+### Development
+
+Code should be formatted using [ormolu][ormolu github].
+A githook for this purpose is available which can be enabled using:
+
+    $ git config --local core.hooksPath .githooks
+
 ### Related Work
 
 * [The original Make paper by Stuart I. Feldman][feldman make]
@@ -73,3 +80,4 @@ This work is licensed under [CC BY-NC-SA 4.0][cc license].
 [bazel web]: https://bazel.build
 [bazel sandbox]: https://bazel.build/docs/sandboxing
 [wiktionary machen]: https://en.wiktionary.org/wiki/machen
+[ormolu github]: https://github.com/tweag/ormolu
