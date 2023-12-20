@@ -5,6 +5,7 @@ module Mach.Types where
 data Flag
   = EnvOverwrite
   | IgnoreAll
+  | SilentAll
   | Makefile String
   | Jobs String
   deriving (Show)

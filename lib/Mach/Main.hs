@@ -24,7 +24,8 @@ options =
   [ Option ['f'] [] (ReqArg T.Makefile "makefile") "Specify a different makefile",
     Option ['e'] [] (NoArg T.EnvOverwrite) "Overwrite macro assignments with environment variables",
     Option ['j'] [] (ReqArg T.Jobs "jobs") "Allow given amount of execution jobs at once",
-    Option ['i'] [] (NoArg T.IgnoreAll) "Ignore exit status of executed commands"
+    Option ['i'] [] (NoArg T.IgnoreAll) "Ignore exit status of executed commands",
+    Option ['s'] [] (NoArg T.SilentAll) "Do not write command lines to stdout"
   ]
 
 makeOpts :: [String] -> IO ([T.Flag], [String])
