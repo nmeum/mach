@@ -1,3 +1,5 @@
+{-# LANGUAGE LambdaCase #-}
+
 module Mach.Exec
   ( mkConfig,
     maybeBuild,
@@ -6,7 +8,7 @@ module Mach.Exec
   )
 where
 
-import Control.Exception (throwIO)
+import Control.Exception (catch, throwIO)
 import Control.Monad (filterM, unless, when)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..))
@@ -14,13 +16,15 @@ import Mach.Eval
 import qualified Mach.Types as T
 import System.Directory (doesPathExist, getModificationTime)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
-import System.IO (Handle, hFlush, hPutStrLn, stdout)
+import System.IO (Handle, hFlush, hPutStrLn, stderr, stdout)
 import System.Process (ProcessHandle, StdStream (UseHandle), createProcess_, shell, std_out, waitForProcess)
 
 -- | Configuration regarding the execution of Makefiles.
 data ExecConfig = ExecConfig
   { -- | Handle used for all output
     output :: Handle,
+    -- | Continue execution of indepentent targets on error.
+    contExec :: Bool,
     -- | Command line flags.
     flags :: [T.Flag],
     -- | Silent targets (.SILENT special target)
@@ -35,8 +39,10 @@ mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
 mkConfig mkDef handle cflags =
   let ignAll = not $ null [() | T.IgnoreAll <- cflags]
       slnAll = not $ null [() | T.SilentAll <- cflags]
+      cnExec = not $ null [() | T.ExecCont <- cflags]
    in ExecConfig
         { output = handle,
+          contExec = cnExec,
           flags = cflags,
           silenced = if slnAll then Just [] else silent mkDef,
           ignored = if ignAll then Just [] else ignore mkDef,
@@ -125,10 +131,20 @@ isUp2Date target = do
 
 -- Build a target if it isn't up-to-date.
 maybeBuild :: ExecConfig -> MkDef -> Target -> IO ()
-maybeBuild conf mk target = do
+maybeBuild conf@ExecConfig {contExec = cont} mk target = do
   -- Recursively ensure that all prerequisites are up-to-date.
   getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)
 
-  up2Date <- isUp2Date target
-  when (not up2Date || isPhony conf target) $
-    runTarget conf mk target
+  catch
+    ( do
+        up2Date <- isUp2Date target
+        when (not up2Date || isPhony conf target) $
+          runTarget conf mk target
+    )
+    ( \case
+        exception@(ExecErr _) ->
+          if cont
+            then hPutStrLn stderr $ "mach: Failed to build '" ++ getName target ++ "'"
+            else throwIO exception
+        exception -> throwIO exception
+    )

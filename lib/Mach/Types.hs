@@ -6,6 +6,7 @@ data Flag
   = EnvOverwrite
   | IgnoreAll
   | SilentAll
+  | ExecCont
   | Makefile String
   | Jobs String
   deriving (Show)

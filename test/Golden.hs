@@ -143,6 +143,11 @@ eqivTests =
       runTest "silent-append" [],
       runTest "ignore-all" [],
       runTest "ignore-single" [],
-      runTest "ignore-all-cmdline" ["-i"]
+      runTest "ignore-all-cmdline" ["-i"],
+      runTest "continue-execution" [],
+      runTest "continue-execution" ["-k", "-i"]
+      -- XXX: Bug in pdpmake <https://github.com/rmyorston/pdpmake/issues/35>?
+      -- runTest "continue-execution" ["-k"]
+      -- TODO: Need to support $(MAKE) for this.
       -- runTest "append-prerequisites",
     ]
