@@ -4,7 +4,11 @@ A WiP implementation of `make(1)`, aims to be compatible with [P1003.1™-202x/D
 
 ## Status
 
-Proof of concept, currently largely untested, buggy, and incomplete.
+Presently, the implementation is mainly a proof of concept.
+Many parts of the POSIX standard are not implemented and some parts are implemented in a not fully conforming way.
+However, some software which more simple Makefile configurations can already be compiled using mach, e.g. [pdpmake][pdpmake makefile].
+Refer to the equivalence tests against a known-good make implementation in `tests/golden` for more information on what is known to work right now.
+Further information is also available in the `TODO.md` file.
 
 ## Installation
 
@@ -36,3 +40,4 @@ This work is licensed under [CC BY-NC-SA 4.0][cc license].
 [gnu make]: https://www.gnu.org/software/make
 [remake github]: https://github.com/rocky/remake
 [pdpmake web]: https://frippery.org/make/
+[pdpmake makefile]: https://github.com/rmyorston/pdpmake/blob/master/Makefile
