@@ -43,7 +43,7 @@ makefile my_flags extra environ path = do
 
   -- If -e is specified, overwrite macro assignments with environment.
   let mk =
-        if null [f | T.EnvOverwrite <- my_flags]
+        if null [() | T.EnvOverwrite <- my_flags]
           then extra ++ environ ++ f
           else extra ++ f ++ environ
 
