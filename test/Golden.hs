@@ -28,12 +28,12 @@ import Util
 -- compared using `diff -r`.
 type MakeResult = (String, FilePath)
 
-runMach :: FilePath -> IO MakeResult
-runMach skel = do
+runMach :: [String] -> FilePath -> IO MakeResult
+runMach flags skel = do
   destDir <- prepTempDir "actual" skel
 
   (readEnd, writeEnd) <- createPipe
-  withCurrentDirectory destDir $ run writeEnd []
+  withCurrentDirectory destDir $ run writeEnd flags
 
   -- The readEnd is semi-close by hGetContents, should be
   -- closed once the entire handle content has been read.
@@ -41,14 +41,14 @@ runMach skel = do
 
   pure (out, destDir)
 
-runGolden :: FilePath -> IO MakeResult
-runGolden skel = do
+runGolden :: [String] -> FilePath -> IO MakeResult
+runGolden flags skel = do
   destDir <- prepTempDir "golden" skel
   devNull <- openFile "/dev/null" WriteMode
 
   (_, Just hout, _, p) <-
     createProcess
-      (proc "pdpmake" [])
+      (proc "pdpmake" flags)
         { cwd = Just destDir,
           std_out = CreatePipe,
           std_err = UseHandle devNull
@@ -86,42 +86,42 @@ compareRuns (outG, fpG) (outA, fpA) = do
         ExitSuccess -> pure Nothing
         ExitFailure _ -> Just <$> hGetContents hout
 
-runMake :: TestName -> FilePath -> TestTree
-runMake name makeDir =
+runMake :: TestName -> [String] -> FilePath -> TestTree
+runMake name flags makeDir =
   goldenTest
     name
-    (runGolden makeDir)
-    (runMach makeDir)
+    (runGolden flags makeDir)
+    (runMach flags makeDir)
     compareRuns
     (\_ -> pure ())
 
 ------------------------------------------------------------------------
 
-runTest :: String -> TestTree
-runTest name = runMake name $ "test" </> "golden" </> name
+runTest :: String -> [String] -> TestTree
+runTest name flags = runMake name flags $ "test" </> "golden" </> name
 
 eqivTests :: TestTree
 eqivTests =
   testGroup
     "eviqTests"
-    [ runTest "expand-delayed",
-      runTest "expand-immediate",
-      runTest "expand-conditional",
-      runTest "default-rule",
-      runTest "include-makefile",
-      runTest "single-suffix-inference",
-      runTest "double-suffix-inference",
-      runTest "silent-exec",
-      runTest "ignore-error",
-      runTest "ignore-error-silent",
-      runTest "silent-selected-targets",
-      runTest "silent-all",
-      runTest "expand-append",
-      runTest "substitute-expand",
-      runTest "builtin-c-compilation1",
-      runTest "builtin-c-compilation2",
-      runTest "silent-append",
-      runTest "ignore-all",
-      runTest "ignore-single"
+    [ runTest "expand-delayed" [],
+      runTest "expand-immediate" [],
+      runTest "expand-conditional" [],
+      runTest "default-rule" [],
+      runTest "include-makefile" [],
+      runTest "single-suffix-inference" [],
+      runTest "double-suffix-inference" [],
+      runTest "silent-exec" [],
+      runTest "ignore-error" [],
+      runTest "ignore-error-silent" [],
+      runTest "silent-selected-targets" [],
+      runTest "silent-all" [],
+      runTest "expand-append" [],
+      runTest "substitute-expand" [],
+      runTest "builtin-c-compilation1" [],
+      runTest "builtin-c-compilation2" [],
+      runTest "silent-append" [],
+      runTest "ignore-all" [],
+      runTest "ignore-single" []
       -- runTest "append-prerequisites",
     ]
