@@ -1,6 +1,10 @@
+{-# LANGUAGE TypeApplications #-}
+
 module Golden (eqivTests) where
 
 import Control.Applicative ((<|>))
+import Control.Exception (catch)
+import Mach.Error (MakeErr)
 import Mach.Main (run)
 import System.Directory (withCurrentDirectory)
 import System.Exit (ExitCode (ExitFailure, ExitSuccess))
@@ -22,24 +26,32 @@ import Util
 
 -- The golden test do not use a golden expected file but instead compare
 -- the "output" of a reference make(1) implementation and mach. The
--- output is defined by 'MakeResult' and presently a tuple consisting of
--- standard output as a 'String' and a 'FilePath' which refers to a
--- temporary directory where make(1) was invoked. The directory is
--- compared using `diff -r`.
-type MakeResult = (String, FilePath)
+-- output is defined by 'MakeResult'. Presently it includes:
+--
+--   • A boolean indicating a succesfully exit
+--   • Standard output as a 'String'
+--   • A 'FilePAth' which refers to the dir where make(1) was invoked
+--
+type MakeResult = (Bool, String, FilePath)
 
 runMach :: [String] -> FilePath -> IO MakeResult
 runMach flags skel = do
   destDir <- prepTempDir "actual" skel
 
   (readEnd, writeEnd) <- createPipe
-  withCurrentDirectory destDir $ run writeEnd flags
+  success <-
+    catch @MakeErr
+      ( do
+          withCurrentDirectory destDir $ run writeEnd flags
+          pure True
+      )
+      (const $ pure False)
 
   -- The readEnd is semi-close by hGetContents, should be
   -- closed once the entire handle content has been read.
   out <- hGetContents readEnd <* hClose writeEnd
 
-  pure (out, destDir)
+  pure (success, out, destDir)
 
 runGolden :: [String] -> FilePath -> IO MakeResult
 runGolden flags skel = do
@@ -54,18 +66,18 @@ runGolden flags skel = do
           std_err = UseHandle devNull
         }
 
-  exitCode <- waitForProcess p <* hClose devNull
-  case exitCode of
-    ExitSuccess -> do
-      out <- hGetContents hout
-      pure (out, destDir)
-    ExitFailure _ -> ioError (userError "runGolden: non-zero exit")
+  ret <- waitForProcess p <* hClose devNull
+  out <- hGetContents hout
+  case ret of
+    ExitSuccess -> pure (True, out, destDir)
+    ExitFailure _ -> pure (False, out, destDir)
 
 compareRuns :: MakeResult -> MakeResult -> IO (Maybe String)
-compareRuns (outG, fpG) (outA, fpA) = do
+compareRuns (succG, outG, fpG) (succA, outA, fpA) = do
   out <- compareStdout
   dir <- compareDirectory
-  pure (out <|> dir)
+  ret <- pure compareExit
+  pure (out <|> dir <|> ret)
   where
     compareStdout :: IO (Maybe String)
     compareStdout =
@@ -85,6 +97,13 @@ compareRuns (outG, fpG) (outA, fpA) = do
       case exitCode of
         ExitSuccess -> pure Nothing
         ExitFailure _ -> Just <$> hGetContents hout
+
+    compareExit :: Maybe String
+    compareExit =
+      case (succG, succA) of
+        (True, False) -> Just "expected zero exit"
+        (False, True) -> Just "expected non-zero exit"
+        _ -> Nothing
 
 runMake :: TestName -> [String] -> FilePath -> TestTree
 runMake name flags makeDir =
