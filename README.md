@@ -12,10 +12,30 @@ Further information is also available in the `TODO.md` file.
 
 ## Installation
 
-This software is designed to work with GHC 9.4.7 without requiring any external dependency, i.e. only relying on the bundled library versions.
-If this GHC version is installed, mach can be installed by cloning the repository and running the following command from the repository root:
+This software is intended to work with recent version of GHC without requiring additional external dependencies, i.e. only relying on the libraries bundled with GHC.
+Currently, GHC 9.2 and 9.4 are known to work, newer versions may works as well (if not, patches are more than welcome).
+If a compatible GHC version is available on your system, mach can be installed using [Cabal][cabal web].
+Otherwise, installation using [Guix][guix web] is recommended.
+More details on both installation methods is provided below.
+
+## Cabal
+
+Assuming the presence of a supported Haskell toolchain version, mach can be installed using Haskell's Cabal package manager.
+In order to do so, clone the repository and running the following command from the repository root:
 
     $ cabal install
+
+If Cabal is configured correctly, the mach executable show be available in your `$PATH`.
+
+## Guix
+
+If a supported GHC version is not available on your system (e.g. because the GHC packaged by your distribution is too old) then you can also install mach using [Guix][guix web].
+Guix is a functional [nix][nix web]-like package manager which can be used alongside your distributions package manger.
+Once Guix is installed on your system, you can build mach by cloning the repository and running the following command:
+
+    $ guix time-machine -C channels.scm -- package -f guix.scm
+
+If Guix is configured correctly, this should add the mach executable to your user's profile.
 
 ## Related Work
 
@@ -41,3 +61,6 @@ This work is licensed under [CC BY-NC-SA 4.0][cc license].
 [remake github]: https://github.com/rocky/remake
 [pdpmake web]: https://frippery.org/make/
 [pdpmake makefile]: https://github.com/rmyorston/pdpmake/blob/master/Makefile
+[guix web]: https://guix.gnu.org
+[nix web]: https://nixos.org/nix/
+[cabal web]: https://haskell.org/cabal
