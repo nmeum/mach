@@ -27,6 +27,8 @@ data ExecConfig = ExecConfig
     contExec :: Bool,
     -- | Command line flags.
     flags :: [T.Flag],
+    -- | Print commands instead of executing them
+    dryRun :: Bool,
     -- | Silent targets (.SILENT special target)
     silenced :: Maybe [String],
     -- | Ignored targets (.IGNORE special target)
@@ -40,10 +42,12 @@ mkConfig mkDef handle cflags =
   let ignAll = not $ null [() | T.IgnoreAll <- cflags]
       slnAll = not $ null [() | T.SilentAll <- cflags]
       cnExec = not $ null [() | T.ExecCont <- cflags]
+      noExec = not $ null [() | T.DryRun <- cflags]
    in ExecConfig
         { output = handle,
           contExec = cnExec,
           flags = cflags,
+          dryRun = noExec,
           silenced = if slnAll then Just [] else silent mkDef,
           ignored = if ignAll then Just [] else ignore mkDef,
           phonies = phony mkDef
@@ -74,11 +78,12 @@ makeProc ExecConfig {output = handle} cmd = do
       else createProcess_ [] (shell cmd) {std_out = UseHandle handle}
   pure p
 
-runCmd :: ExecConfig -> Target -> Cmd -> IO ()
-runCmd conf@ExecConfig {output = handle} tgt cmd = do
-  unless (cmdSilent cmd || isSilent conf tgt) $
-    (hPutStrLn handle (show cmd) >> hFlush handle)
+printCmd :: ExecConfig -> Cmd -> IO ()
+printCmd ExecConfig {output = handle} cmd =
+  hPutStrLn handle (show cmd) >> hFlush handle
 
+callCmd :: ExecConfig -> Target -> Cmd -> IO ()
+callCmd conf tgt cmd = do
   p <- makeProc conf $ cmdShell cmd
   exitCode <- waitForProcess p
   case exitCode of
@@ -87,6 +92,22 @@ runCmd conf@ExecConfig {output = handle} tgt cmd = do
       unless (cmdIgnore cmd || isIgnored conf tgt) $
         throwIO $
           ExecErr ("non-zero exit: " ++ show cmd)
+
+runCmd :: ExecConfig -> Target -> Cmd -> IO ()
+runCmd conf = if dryRun conf then dryRunCmd else execCmd
+  where
+    execCmd :: Target -> Cmd -> IO ()
+    execCmd tgt cmd = do
+      unless (cmdSilent cmd || isSilent conf tgt) $
+        printCmd conf cmd
+
+      callCmd conf tgt cmd
+
+    dryRunCmd :: Target -> Cmd -> IO ()
+    dryRunCmd tgt cmd = do
+      printCmd conf cmd
+      when (cmdExec cmd) $
+        callCmd conf tgt cmd
 
 runTarget :: ExecConfig -> MkDef -> Target -> IO ()
 runTarget conf mk tgt = mapM_ (runCmd conf tgt) (getCmds mk tgt)

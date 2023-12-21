@@ -5,6 +5,7 @@ module Mach.Types where
 data Flag
   = EnvOverwrite
   | IgnoreAll
+  | DryRun
   | SilentAll
   | ExecCont
   | Makefile String

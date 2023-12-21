@@ -145,7 +145,9 @@ eqivTests =
       runTest "ignore-single" [],
       runTest "ignore-all-cmdline" ["-i"],
       runTest "continue-execution" [],
-      runTest "continue-execution" ["-k", "-i"]
+      runTest "continue-execution" ["-k", "-i"],
+      runTest "dry-run" ["-n"],
+      runTest "dry-run-with-exec" ["-n"]
       -- XXX: Bug in pdpmake <https://github.com/rmyorston/pdpmake/issues/35>?
       -- runTest "continue-execution" ["-k"]
       -- TODO: Need to support $(MAKE) for this.
