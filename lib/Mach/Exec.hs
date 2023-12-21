@@ -10,6 +10,7 @@ where
 
 import Control.Exception (catch, throwIO)
 import Control.Monad (filterM, unless, when)
+import Data.List (find)
 import Data.Maybe (catMaybes)
 import Mach.Error (MakeErr (..))
 import Mach.Eval
@@ -39,9 +40,9 @@ data ExecConfig = ExecConfig
 
 mkConfig :: MkDef -> Handle -> [T.Flag] -> ExecConfig
 mkConfig mkDef handle cflags =
-  let ignAll = not $ null [() | T.IgnoreAll <- cflags]
+  let cnExec = not $ execTerminate cflags
+      ignAll = not $ null [() | T.IgnoreAll <- cflags]
       slnAll = not $ null [() | T.SilentAll <- cflags]
-      cnExec = not $ null [() | T.ExecCont <- cflags]
       noExec = not $ null [() | T.DryRun <- cflags]
    in ExecConfig
         { output = handle,
@@ -52,6 +53,21 @@ mkConfig mkDef handle cflags =
           ignored = if ignAll then Just [] else ignore mkDef,
           phonies = phony mkDef
         }
+  where
+    isTerminate :: T.Flag -> Bool
+    isTerminate T.TermOnErr = True
+    isTerminate _ = False
+
+    -- Implements check for precedence of -k and -S.
+    execTerminate :: [T.Flag] -> Bool
+    execTerminate =
+      maybe True isTerminate
+        . find
+          ( \case
+              T.IgnoreAll -> True
+              T.ExecCont -> True
+              _ -> False
+          )
 
 isSilent :: ExecConfig -> Target -> Bool
 isSilent ExecConfig {silenced = s} tgt =

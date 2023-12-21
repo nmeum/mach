@@ -152,9 +152,12 @@ eqivTests =
       runTest "ignore-all-cmdline" ["-i"],
       runTest "continue-execution" [],
       runTest "continue-execution" ["-k", "-i"],
+      runTest "continue-execution" ["-S", "-k", "-i"],
+      runTest "continue-execution" ["-k", "-i", "-S"],
+      runTest "continue-execution" ["-k", "-i", "-S", "-k"],
+      runTest "continue-execution" ["-k"],
       runTest "dry-run" ["-n"],
-      runTest "dry-run-with-exec" ["-n"],
-      runTest "continue-execution" ["-k"]
+      runTest "dry-run-with-exec" ["-n"]
       -- TODO: Need to support $(MAKE) for this.
       -- runTest "append-prerequisites",
     ]

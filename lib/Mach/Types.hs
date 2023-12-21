@@ -8,6 +8,7 @@ data Flag
   | DryRun
   | SilentAll
   | ExecCont
+  | TermOnErr
   | Makefile String
   | Jobs String
   deriving (Show)

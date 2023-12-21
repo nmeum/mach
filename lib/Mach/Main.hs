@@ -28,7 +28,8 @@ options =
     Option ['i'] [] (NoArg T.IgnoreAll) "Ignore exit status of executed commands",
     Option ['s'] [] (NoArg T.SilentAll) "Do not write command lines to stdout",
     Option ['k'] [] (NoArg T.ExecCont) "On error keep executing independent targets",
-    Option ['n'] [] (NoArg T.DryRun) "Write commands to be executed to stdout"
+    Option ['n'] [] (NoArg T.DryRun) "Write commands to be executed to stdout",
+    Option ['S'] [] (NoArg T.TermOnErr) "Terminate on error (the default)"
   ]
 
 makeOpts :: [String] -> IO ([T.Flag], [String])
