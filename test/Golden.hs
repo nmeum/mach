@@ -119,7 +119,11 @@ runMake name flags makeDir =
 ------------------------------------------------------------------------
 
 runTest :: String -> [String] -> TestTree
-runTest name flags = runMake name flags $ "test" </> "golden" </> name
+runTest name flags =
+  runMake
+    (if null flags then name else name ++ " [" ++ unwords flags ++ "]")
+    flags
+    ("test" </> "golden" </> name)
 
 eqivTests :: TestTree
 eqivTests =
