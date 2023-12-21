@@ -151,21 +151,30 @@ isUp2Date target = do
     else null <$> newerPreqs target
 
 -- Build a target if it isn't up-to-date.
-maybeBuild :: ExecConfig -> MkDef -> Target -> IO ()
+--
+-- Returns 'False' for execution errors when executing with `-k`.
+-- Otherwise, an exception is raised on execution errors.
+--
+-- TODO: Consider using Either error handling instead of exceptions.
+maybeBuild :: ExecConfig -> MkDef -> Target -> IO Bool
 maybeBuild conf@ExecConfig {contExec = cont} mk target = do
   -- Recursively ensure that all prerequisites are up-to-date.
-  getTargetPreqs mk target >>= mapM_ (maybeBuild conf mk)
+  res <- getTargetPreqs mk target >>= mapM (maybeBuild conf mk)
 
   catch
     ( do
         up2Date <- isUp2Date target
         when (not up2Date || isPhony conf target) $
           runTarget conf mk target
+
+        pure (not $ any (== False) res)
     )
     ( \case
         exception@(ExecErr _) ->
           if cont
-            then hPutStrLn stderr $ "mach: Failed to build '" ++ getName target ++ "'"
+            then do
+              hPutStrLn stderr $ "mach: Failed to build '" ++ getName target ++ "'"
+              pure False
             else throwIO exception
         exception -> throwIO exception
     )

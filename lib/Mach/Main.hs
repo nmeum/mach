@@ -17,6 +17,7 @@ import System.Console.GetOpt
     usageInfo,
   )
 import System.Environment (lookupEnv)
+import System.Exit (ExitCode (ExitFailure, ExitSuccess))
 import System.IO (Handle)
 
 options :: [OptDescr T.Flag]
@@ -53,7 +54,7 @@ makefile my_flags extra environ path = do
   -- TODO: evaluate extra and environ once
   eval (mk)
 
-runMk :: Handle -> [T.Flag] -> T.MkFile -> T.MkFile -> [String] -> FilePath -> IO ()
+runMk :: Handle -> [T.Flag] -> T.MkFile -> T.MkFile -> [String] -> FilePath -> IO Bool
 runMk handle my_flags extra environ my_targets path = do
   mk <- makefile my_flags extra environ path
   targets <-
@@ -62,8 +63,8 @@ runMk handle my_flags extra environ my_targets path = do
       else pure my_targets
 
   let conf = mkConfig mk handle my_flags
-
-  mapM (targetOrFile' mk) targets >>= mapM_ (maybeBuild conf mk)
+  (not . any (== False))
+    <$> (mapM (targetOrFile' mk) targets >>= mapM (maybeBuild conf mk))
   where
     firstTarget' mk = case firstTarget mk of
       Nothing -> throwIO $ TargetErr ZeroTargetsDefined
@@ -75,7 +76,7 @@ runMk handle my_flags extra environ my_targets path = do
         Nothing -> throwIO $ TargetErr (NoSuchTarget t)
         Just tg -> pure tg
 
-run :: Handle -> [String] -> IO ()
+run :: Handle -> [String] -> IO ExitCode
 run handle args = do
   (flagsCmd, remain) <- makeOpts args
   (vars, targets) <- cmdLine $ unwords remain
@@ -87,7 +88,12 @@ run handle args = do
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
   let extra = builtins ++ vars ++ envMacros
-  mapM_ (runMk handle (flagsCmd ++ flagsEnv) extra environs targets) $
+  res <- mapM (runMk handle (flagsCmd ++ flagsEnv) extra environs targets) $
     case [f | T.Makefile f <- flagsCmd] of
       [] -> ["Makefile"]
       fs -> fs
+
+  pure $
+    if (any (== False) res)
+      then ExitFailure 1
+      else ExitSuccess
