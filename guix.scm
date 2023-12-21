@@ -26,7 +26,7 @@
 ;; Build pdpmake from git for POSIX compliance fixes which are not
 ;; contained in the latest releases and cause mach test failures.
 (define pdpmake-git
-  (let ((commit "c5088246019f234ce28cbc80d2080d25d0f99a2c"))
+  (let ((commit "d5214d453662c484378dd7254520c2fb27571057"))
     (package
       (inherit pdpmake)
       (source (origin
@@ -35,7 +35,7 @@
                        (url "https://github.com/rmyorston/pdpmake.git")
                        (commit commit)))
                 (file-name (git-file-name "pdpmake" commit))
-                (sha256 (base32 "0338x9jham8biaqjnaha3slazv5zilg1wgrfnp419w5kqd5yc7p4")))))))
+                (sha256 (base32 "1vrkb7as8hbbn1w4pdmcz88gwacr7j45pdqr7dlkyy54pxd39nhg")))))))
 
 ;; Provides a symlink from /bin/cc to the C compiler for the current
 ;; target. Needed for portable cc(1) invocations in the golden tests.
