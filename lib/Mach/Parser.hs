@@ -7,6 +7,7 @@ import Data.List (elemIndices)
 import Mach.Error (MakeErr (..))
 import qualified Mach.Types as T
 import Mach.Util (isSpecial)
+import System.IO (hGetContents, stdin)
 import Text.ParserCombinators.Parsec
   ( Parser,
     alphaNum,
@@ -249,7 +250,10 @@ cmdLine str =
 
 parseMkFile :: FilePath -> IO T.MkFile
 parseMkFile path = do
-  res <- parseFromFile mkFile path
+  res <-
+    if path == "-"
+      then parse mkFile path <$> hGetContents stdin
+      else parseFromFile mkFile path
   case res of
     Left err -> throwIO $ ParserErr err
     Right mk -> pure mk
