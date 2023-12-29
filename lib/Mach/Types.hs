@@ -9,6 +9,7 @@ data Flag
   | SilentAll
   | ExecCont
   | TermOnErr
+  | NoBuiltin
   | Makefile String
   | Jobs String
   deriving (Show)

@@ -29,7 +29,8 @@ options =
     Option ['s'] [] (NoArg T.SilentAll) "Do not write command lines to stdout",
     Option ['k'] [] (NoArg T.ExecCont) "On error keep executing independent targets",
     Option ['n'] [] (NoArg T.DryRun) "Write commands to be executed to stdout",
-    Option ['S'] [] (NoArg T.TermOnErr) "Terminate on error (the default)"
+    Option ['S'] [] (NoArg T.TermOnErr) "Terminate on error (the default)",
+    Option ['r'] [] (NoArg T.NoBuiltin) "Do not use the builtin rules"
   ]
 
 makeOpts :: [String] -> IO ([T.Flag], [String])
@@ -88,8 +89,13 @@ run handle args = do
   environs <- getEnvMarcos
   builtins <- getDataFileName "share/builtin.mk" >>= parseMkFile
 
-  let extra = builtins ++ vars ++ envMacros
-  res <- mapM (runMk handle (flagsCmd ++ flagsEnv) extra environs targets) $
+  let my_flags = flagsCmd ++ flagsEnv
+  let extra =
+        if null [() | T.NoBuiltin <- my_flags]
+          then builtins ++ vars ++ envMacros
+          else vars ++ envMacros
+
+  res <- mapM (runMk handle my_flags extra environs targets) $
     case [f | T.Makefile f <- flagsCmd] of
       [] -> ["Makefile"]
       fs -> fs
