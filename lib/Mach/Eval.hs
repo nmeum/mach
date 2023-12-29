@@ -51,6 +51,9 @@ data TgtDef = TgtDef
   }
   deriving (Show)
 
+instance Show TgtDef where
+    show (TgtDef{..}) = 
+
 -- | Expanded makefile definition.
 data MkDef = MkDef
   { -- | Macros defined in this Makefile.
@@ -64,7 +67,11 @@ data MkDef = MkDef
     -- | TgtDefs defined in this Makefile.
     targetDefs :: Map.Map String TgtDef
   }
-  deriving (Show)
+
+instance Show MkDef where
+  show (MkDef {assigns = a, targetDefs = defs}) =
+    (Map.foldlWithKey (\acc k v -> k ++ " " ++ show v ++ "\n" ++ acc) "" a)
+      ++ (Map.foldlWithKey (\acc t d -> t ++ ": " ++ show d ++ "\n" ++ acc) "" defs)
 
 getSpecialPreqs :: MkDef -> String -> Maybe [String]
 getSpecialPreqs MkDef {targetDefs = targets} name =

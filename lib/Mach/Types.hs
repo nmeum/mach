@@ -21,7 +21,10 @@ data MacroAssign
     AssignI String
   | -- | Delayed assignment
     AssignD Token
-  deriving (Show)
+
+instance Show MacroAssign where
+  show (AssignI s) = "::= " ++ s
+  show (AssignD t) = "= " ++ show t
 
 -- | Tokens of text which are potentially subject to macro expansion.
 data Token
@@ -33,7 +36,14 @@ data Token
     ExpSub Token String String
   | -- | Sequence text
     Seq [Token]
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Token where
+  show (Lit str) = str
+  show (Exp tok) = "${" ++ show tok ++ "}"
+  show (ExpSub (Exp t) s1 s2) = "${" ++ show t ++ ":" ++ s1 ++ "=" ++ s2 ++ "}"
+  show (ExpSub _ _ _) = error "unreachable" -- TODO
+  show (Seq tok) = concat $ map show tok
 
 -- | A macro definition, i.e. an assignment.
 data Assign
@@ -44,7 +54,10 @@ data Assign
       Flavor
       -- | Right value of the assignment
       Token
-  deriving (Show, Eq)
+  deriving (Eq)
+
+instance Show Assign where
+  show (Assign n f v) = unwords [n, show f, show v]
 
 -- | POSIX make supports different macro assignment operators (macro flavors).
 data Flavor

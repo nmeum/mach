@@ -64,6 +64,8 @@ runMk handle my_flags extra environ my_targets path = do
       then (: []) <$> firstTarget' mk
       else pure my_targets
 
+  putStrLn $ show mk
+
   let conf = mkConfig mk handle my_flags
   (not . any (== False))
     <$> (mapM (targetOrFile' mk) targets >>= mapM (maybeBuild conf mk))
