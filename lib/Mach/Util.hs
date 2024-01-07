@@ -47,7 +47,7 @@ isSpecial = flip elem special
 getEnvMarcos :: IO T.MkFile
 getEnvMarcos = do
   env <- filter ((not . flip elem excluded) . fst) <$> getEnvironment
-  pure $ map (\(k, v) -> T.MkAssign $ T.Assign k T.Immediate (T.Lit v)) env
+  pure $ map (\(k, v) -> T.MkAssign $ T.Assign (T.Lit k) T.Immediate (T.Lit v)) env
   where
     excluded :: [String]
     excluded = ["SHELL", "MAKEFLAGS"]

@@ -283,14 +283,15 @@ expand env (T.ExpSub t s1 s2) =
 ------------------------------------------------------------------------
 
 evalAssign :: Env -> T.Assign -> (String, T.MacroAssign)
-evalAssign env (T.Assign name ty val) =
-  case ty of
-    T.Delayed -> (name, T.AssignD val)
-    T.Immediate -> (name, T.AssignI $ expand env val)
-    T.StrictDelay -> error "unsupported"
-    T.System -> error "unsupported"
-    T.Cond -> (name, fromMaybe (T.AssignD val) $ Map.lookup name env)
-    T.Append -> (name, maybe (T.AssignD val) appendAssign $ Map.lookup name env)
+evalAssign env (T.Assign name' ty val) =
+  let name = expand env name'
+   in case ty of
+        T.Delayed -> (name, T.AssignD val)
+        T.Immediate -> (name, T.AssignI $ expand env val)
+        T.StrictDelay -> error "unsupported"
+        T.System -> error "unsupported"
+        T.Cond -> (name, fromMaybe (T.AssignD val) $ Map.lookup name env)
+        T.Append -> (name, maybe (T.AssignD val) appendAssign $ Map.lookup name env)
   where
     appendAssign :: T.MacroAssign -> T.MacroAssign
     appendAssign (T.AssignI str) = T.AssignI $ str ++ " " ++ expand env val

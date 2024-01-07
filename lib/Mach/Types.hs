@@ -39,7 +39,7 @@ data Token
 data Assign
   = Assign
       -- | Unique identifier for the macro
-      String
+      Token
       -- | Assignment type
       Flavor
       -- | Right value of the assignment

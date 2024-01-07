@@ -55,7 +55,7 @@ assignTests =
     parseErr = isLeft . parse
 
     assign :: String -> T.Flavor -> T.Token -> Either Parsec.ParseError T.Assign
-    assign n f t = Right $ T.Assign n f t
+    assign n f t = Right $ T.Assign (T.Seq [T.Lit n]) f t
 
 ruleTests :: TestTree
 ruleTests =
@@ -108,7 +108,7 @@ mkTests =
   testGroup
     "makefile parser"
     [ testCase "assignment" $
-        let assign = T.Assign "foo" T.Delayed (T.Seq [T.Lit "bar"])
+        let assign = T.Assign (T.Seq [T.Lit "foo"]) T.Delayed (T.Seq [T.Lit "bar"])
          in parse "foo = bar\n" @?= Right [T.MkAssign assign],
       testCase "rule" $
         let rule = T.TgtRule [T.Lit "foo"] [] [T.Seq [T.Lit "bar"]]

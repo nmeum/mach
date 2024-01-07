@@ -158,7 +158,8 @@ eqivTests =
       runTest "continue-execution" ["-k"],
       runTest "dry-run" ["-n"],
       runTest "dry-run-with-exec" ["-n"],
-      runTest "no-builtins" ["-r"]
+      runTest "no-builtins" ["-r"],
+      runTest "lvalue-macro" []
       -- TODO: Need to support $(MAKE) for this.
       -- runTest "append-prerequisites",
     ]

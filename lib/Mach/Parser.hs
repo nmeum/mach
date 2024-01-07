@@ -87,7 +87,7 @@ assignOp =
 -- | Parse an assignment, i.e. a macro definition.
 assign :: Parser T.Assign
 assign = do
-  mident <- macroName
+  mident <- tokens' [' ', '=']
   flavor <- blanks >> assignOp <* blanks
   T.Assign mident flavor <$> tokens
 
@@ -239,7 +239,7 @@ cmdLine str =
   where
     assign' :: Parser T.Assign
     assign' = do
-      mident <- macroName
+      mident <- tokens' [' ', '=']
       flavor <- assignOp
       unless (flavor `elem` [T.Delayed, T.Immediate, T.StrictDelay]) $
         unexpected "invalid assignment flavor"
