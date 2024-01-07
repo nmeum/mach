@@ -157,6 +157,10 @@ tokenLit lit =
 tokens :: Parser T.Token
 tokens = T.Seq <$> many token
 
+-- | Like 'tokens' but allows passing characters not valid in the current context.
+tokens' :: [Char] -> Parser T.Token
+tokens' notValid = T.Seq <$> many (tokenLit $ literal notValid)
+
 -- | Parse multiple lines of commands prefixed by a tab character.
 commands :: Parser [T.Token]
 commands = many (char '\t' >> (tokens <* newline))
@@ -240,7 +244,7 @@ cmdLine str =
       unless (flavor `elem` [T.Delayed, T.Immediate, T.StrictDelay]) $
         unexpected "invalid assignment flavor"
 
-      T.Assign mident flavor <$> (T.Seq <$> many (tokenLit $ literal " "))
+      T.Assign mident flavor <$> tokens' " "
 
     cmdLine' :: Parser (T.MkFile, [FilePath])
     cmdLine' = do
